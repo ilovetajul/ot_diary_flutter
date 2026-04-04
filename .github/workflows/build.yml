@@ -25,11 +25,16 @@ jobs:
           channel: 'stable'
           cache: true
 
+      - name: 🗑 Remove old android folder
+        run: rm -rf android ios
+
       - name: 🔨 Create fresh Flutter project
         run: |
-          flutter create --org com.otdiary --project-name ot_diary temp_project
-          cp -r temp_project/android ./android
-          rm -rf temp_project
+          flutter create \
+            --org com.otdiary \
+            --project-name ot_diary \
+            --platforms android \
+            .
 
       - name: 📦 Get dependencies
         run: flutter pub get
@@ -40,17 +45,17 @@ jobs:
         run: |
           echo "$GOOGLE_SERVICES_JSON" > android/app/google-services.json
 
-      - name: 🔧 Add Firebase to build.gradle
+      - name: 🔧 Add Firebase to app/build.gradle
         run: |
-          sed -i "s/id 'com.android.application'/id 'com.android.application'\n    id 'com.google.gms.google-services'/" android/app/build.gradle
-          sed -i "/dependencies {/a\        classpath 'com.google.gms:google-services:4.4.1'" android/build.gradle 2>/dev/null || true
+          # Add google-services plugin
+          sed -i "s/id \"com.android.application\"/id \"com.android.application\"\n    id \"com.google.gms.google-services\"/" android/app/build.gradle
 
       - name: 🔨 Build APK
-        run: flutter build apk --debug
+        run: flutter build apk --debug --no-tree-shake-icons
 
       - name: 📤 Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: OT-Diary-APK
+          name: OT-Diary-Debug-APK
           path: build/app/outputs/flutter-apk/app-debug.apk
           retention-days: 30
