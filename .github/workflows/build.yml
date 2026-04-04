@@ -39,34 +39,6 @@ jobs:
       - name: 📦 Get dependencies
         run: flutter pub get
 
-      - name: 🔥 Inject Firebase Config
-        env:
-          GOOGLE_SERVICES_JSON: ${{ secrets.GOOGLE_SERVICES_JSON }}
-        run: |
-          echo "$GOOGLE_SERVICES_JSON" > android/app/google-services.json
-
-      - name: 🔧 Add Firebase to settings.gradle
-        run: |
-          cat >> android/settings.gradle << 'EOF'
-
-          // Firebase
-          buildscript {
-              repositories {
-                  google()
-                  mavenCentral()
-              }
-              dependencies {
-                  classpath 'com.google.gms:google-services:4.4.1'
-              }
-          }
-          EOF
-
-      - name: 🔧 Add google-services plugin to app/build.gradle
-        run: |
-          sed -i "s/id \"com.android.application\"/id \"com.android.application\"\n    id \"com.google.gms.google-services\"/" android/app/build.gradle
-          echo "" >> android/app/build.gradle
-          echo "apply plugin: 'com.google.gms.google-services'" >> android/app/build.gradle
-
       - name: 🔨 Build APK
         run: flutter build apk --debug --no-tree-shake-icons
 
