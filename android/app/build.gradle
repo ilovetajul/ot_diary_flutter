@@ -25,7 +25,6 @@ android {
         targetSdkVersion 34
         versionCode 1
         versionName "2.0.0"
-        multiDexEnabled true
     }
 
     buildTypes {
@@ -33,9 +32,6 @@ android {
             signingConfig signingConfigs.debug
             minifyEnabled false
             shrinkResources false
-        }
-        debug {
-            applicationIdSuffix ""
         }
     }
 }
@@ -48,5 +44,4 @@ dependencies {
     implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk7:1.9.22"
     implementation platform('com.google.firebase:firebase-bom:33.0.0')
     implementation 'com.google.firebase:firebase-analytics'
-    implementation 'androidx.multidex:multidex:2.0.1'
 }
