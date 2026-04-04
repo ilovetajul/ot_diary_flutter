@@ -3,28 +3,21 @@ name: 🚀 Build OT Diary APK
 on:
   push:
     branches: [ main, master ]
-  pull_request:
-    branches: [ main, master ]
-  workflow_dispatch:  # হাতে চালানোর সুবিধা
+  workflow_dispatch:
 
 jobs:
   build-apk:
-    name: Flutter APK Build
     runs-on: ubuntu-latest
-
     steps:
-      # ===== ১. Code checkout =====
-      - name: 📥 Checkout Repository
+      - name: 📥 Checkout
         uses: actions/checkout@v4
 
-      # ===== ২. Java setup =====
-      - name: ☕ Setup Java 17
+      - name: ☕ Setup Java
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
           java-version: '17'
 
-      # ===== ৩. Flutter setup =====
       - name: 🐦 Setup Flutter
         uses: subosito/flutter-action@v2
         with:
@@ -32,67 +25,32 @@ jobs:
           channel: 'stable'
           cache: true
 
-      # ===== ৪. Flutter version check =====
-      - name: ✅ Flutter Version Check
-        run: flutter --version
+      - name: 🔨 Create fresh Flutter project
+        run: |
+          flutter create --org com.otdiary --project-name ot_diary temp_project
+          cp -r temp_project/android ./android
+          rm -rf temp_project
 
-      # ===== ৫. Dependencies install =====
-      - name: 📦 Install Dependencies
+      - name: 📦 Get dependencies
         run: flutter pub get
 
-      # ===== ৬. Code analysis =====
-      - name: 🔍 Analyze Code
-        run: flutter analyze --no-fatal-infos
-        continue-on-error: true
-
-      # ===== ৭. Firebase google-services.json inject =====
       - name: 🔥 Inject Firebase Config
         env:
           GOOGLE_SERVICES_JSON: ${{ secrets.GOOGLE_SERVICES_JSON }}
         run: |
           echo "$GOOGLE_SERVICES_JSON" > android/app/google-services.json
 
-      # ===== ৮. Build Debug APK =====
-      - name: 🔨 Build Debug APK
-        run: flutter build apk --debug --split-per-abi
+      - name: 🔧 Add Firebase to build.gradle
+        run: |
+          sed -i "s/id 'com.android.application'/id 'com.android.application'\n    id 'com.google.gms.google-services'/" android/app/build.gradle
+          sed -i "/dependencies {/a\        classpath 'com.google.gms:google-services:4.4.1'" android/build.gradle 2>/dev/null || true
 
-      # ===== ৯. Build Release APK =====
-      - name: 🏗️ Build Release APK
-        run: flutter build apk --release --split-per-abi
-        continue-on-error: true
+      - name: 🔨 Build APK
+        run: flutter build apk --debug
 
-      # ===== ১০. Upload APK as artifact =====
-      - name: 📤 Upload Debug APK
+      - name: 📤 Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: OT-Diary-APK-Debug
+          name: OT-Diary-APK
           path: build/app/outputs/flutter-apk/app-debug.apk
           retention-days: 30
-
-      - name: 📤 Upload Release APK (arm64)
-        uses: actions/upload-artifact@v4
-        with:
-          name: OT-Diary-APK-Release-arm64
-          path: build/app/outputs/flutter-apk/app-arm64-v8a-release.apk
-          retention-days: 30
-        continue-on-error: true
-
-      - name: 📤 Upload Release APK (armeabi)
-        uses: actions/upload-artifact@v4
-        with:
-          name: OT-Diary-APK-Release-armeabi
-          path: build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk
-          retention-days: 30
-        continue-on-error: true
-
-      # ===== ১১. Build summary =====
-      - name: 📋 Build Summary
-        run: |
-          echo "## ✅ Build Complete!" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### 📱 APK Files:" >> $GITHUB_STEP_SUMMARY
-          echo "- Debug APK: \`app-debug.apk\`" >> $GITHUB_STEP_SUMMARY
-          echo "- Release ARM64: \`app-arm64-v8a-release.apk\`" >> $GITHUB_STEP_SUMMARY
-          echo "- Release ARM: \`app-armeabi-v7a-release.apk\`" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "> Actions ট্যাবে গিয়ে Artifacts থেকে ডাউনলোড করুন" >> $GITHUB_STEP_SUMMARY
