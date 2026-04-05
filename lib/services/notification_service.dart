@@ -1,5 +1,7 @@
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:timezone/timezone.dart' as tz;
+import 'dart:ui' as ui;
+
 
 class NotificationService {
   static final _plugin = FlutterLocalNotificationsPlugin();
@@ -36,7 +38,7 @@ class NotificationService {
           channelDescription: 'প্রতিদিনের OT এন্ট্রি রিমাইন্ডার',
           importance: Importance.high,
           priority: Priority.high,
-          color: Color(0xFF00E5C0),
+          color: const ui.Color(0xFF00E5C0),
         ),
       ),
       androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
