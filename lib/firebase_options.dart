@@ -8,39 +8,29 @@ class DefaultFirebaseOptions {
   static FirebaseOptions get currentPlatform {
     if (kIsWeb) return web;
     switch (defaultTargetPlatform) {
-      case TargetPlatform.android: return android;
-      case TargetPlatform.iOS: return ios;
-      default: throw UnsupportedError('এই platform সাপোর্ট করে না');
+      case TargetPlatform.android:
+        return android;
+      default:
+        return android;
     }
   }
 
-  // ===== আপনার Firebase Console থেকে এই মানগুলো বসান =====
   static const FirebaseOptions android = FirebaseOptions(
-    apiKey: 'YOUR_ANDROID_API_KEY',
-    appId: 'YOUR_ANDROID_APP_ID',
-    messagingSenderId: 'YOUR_SENDER_ID',
-    projectId: 'YOUR_PROJECT_ID',
-    databaseURL: 'https://YOUR_PROJECT-default-rtdb.firebaseio.com',
-    storageBucket: 'YOUR_PROJECT.appspot.com',
+    apiKey: 'AIzaSyAvJ0BDsTARpRWWgR68rNzlMyKTgeTPSMU',
+    appId: '1:226972293146:android:72c952eab333f6d83b99a3',
+    messagingSenderId: '226972293146',
+    projectId: 'ot-diary-flutter',
+    databaseURL: 'https://ot-diary-flutter-default-rtdb.asia-southeast1.firebasedatabase.app',
+    storageBucket: 'ot-diary-flutter.firebasestorage.app',
   );
 
   static const FirebaseOptions web = FirebaseOptions(
-    apiKey: 'YOUR_WEB_API_KEY',
-    appId: 'YOUR_WEB_APP_ID',
-    messagingSenderId: 'YOUR_SENDER_ID',
-    projectId: 'YOUR_PROJECT_ID',
-    databaseURL: 'https://YOUR_PROJECT-default-rtdb.firebaseio.com',
-    storageBucket: 'YOUR_PROJECT.appspot.com',
-    authDomain: 'YOUR_PROJECT.firebaseapp.com',
-  );
-
-  static const FirebaseOptions ios = FirebaseOptions(
-    apiKey: 'YOUR_IOS_API_KEY',
-    appId: 'YOUR_IOS_APP_ID',
-    messagingSenderId: 'YOUR_SENDER_ID',
-    projectId: 'YOUR_PROJECT_ID',
-    databaseURL: 'https://YOUR_PROJECT-default-rtdb.firebaseio.com',
-    storageBucket: 'YOUR_PROJECT.appspot.com',
-    iosBundleId: 'com.otdiary.app',
+    apiKey: 'AIzaSyBy7iUo-a9tFavhW1An1xYN2ICDdzZz7oI',
+    appId: '1:226972293146:web:41aa9d8a79df6f6b3b99a3',
+    messagingSenderId: '226972293146',
+    projectId: 'ot-diary-flutter',
+    databaseURL: 'https://ot-diary-flutter-default-rtdb.asia-southeast1.firebasedatabase.app',
+    storageBucket: 'ot-diary-flutter.firebasestorage.app',
+    authDomain: 'ot-diary-flutter.firebaseapp.com',
   );
 }
