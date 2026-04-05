@@ -27,7 +27,6 @@ jobs:
 
       - name: 🗑 Remove old android folder
         run: rm -rf android ios
-
       - name: 🔨 Create fresh Flutter project
         run: |
           flutter create \
@@ -35,6 +34,9 @@ jobs:
             --project-name ot_diary \
             --platforms android \
             .
+          # minSdkVersion 23 set করুন
+          sed -i 's/minSdkVersion flutter.minSdkVersion/minSdkVersion 23/' android/app/build.gradle
+          sed -i 's/minSdk = flutter.minSdkVersion/minSdk = 23/' android/app/build.gradle
 
       - name: 📦 Get dependencies
         run: flutter pub get
