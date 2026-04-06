@@ -45,10 +45,7 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
-  assets:
-    - assets/
 
-flutter:
   assets:
     - assets/fonts/
 
