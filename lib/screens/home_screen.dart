@@ -260,7 +260,7 @@ class _HomeScreenState extends State<HomeScreen> {
               Text(_profile.name, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700)),
               const SizedBox(height: 6),
               Wrap(spacing: 6, children: [
-                _tag('🪪 ${_profile.idNo.isNotEmpty ? _profile.idNo : "—"}'),
+                _tag('ID: ${_profile.idNo.isNotEmpty ? _profile.idNo : "—"}'),
                 _tag('⚡ ৳${_profile.rate}/ঘন্টা', accent: true),
               ]),
             ])),
