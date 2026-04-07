@@ -1,36 +1,43 @@
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:timezone/timezone.dart' as tz;
-import 'dart:ui' as ui;
-
+import 'package:timezone/data/latest.dart' as tz_data;
 
 class NotificationService {
   static final _plugin = FlutterLocalNotificationsPlugin();
 
   static Future<void> init() async {
+    tz_data.initializeTimeZones();
+
     const android = AndroidInitializationSettings('@mipmap/ic_launcher');
     await _plugin.initialize(
       const InitializationSettings(android: android),
-      onDidReceiveNotificationResponse: (details) {},
     );
-    // Request permission (Android 13+)
+
     await _plugin
         .resolvePlatformSpecificImplementation<
             AndroidFlutterLocalNotificationsPlugin>()
         ?.requestNotificationsPermission();
   }
 
-  // Daily reminder at specified time
   static Future<void> scheduleDailyReminder({
     required int hour,
     required int minute,
     required String title,
     required String body,
   }) async {
+    final location = tz.getLocation('Asia/Dhaka');
+    final now = tz.TZDateTime.now(location);
+    var scheduled = tz.TZDateTime(
+        location, now.year, now.month, now.day, hour, minute);
+    if (scheduled.isBefore(now)) {
+      scheduled = scheduled.add(const Duration(days: 1));
+    }
+
     await _plugin.zonedSchedule(
       1,
       title,
       body,
-      _nextInstanceOfTime(hour, minute),
+      scheduled,
       const NotificationDetails(
         android: AndroidNotificationDetails(
           'ot_reminder',
@@ -38,7 +45,6 @@ class NotificationService {
           channelDescription: 'প্রতিদিনের OT এন্ট্রি রিমাইন্ডার',
           importance: Importance.high,
           priority: Priority.high,
-          color: const ui.Color(0xFF00E5C0),
         ),
       ),
       androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
@@ -48,36 +54,7 @@ class NotificationService {
     );
   }
 
-  // Month end salary notification
-  static Future<void> showSalaryNotification({
-    required double total,
-    required double otHours,
-  }) async {
-    await _plugin.show(
-      2,
-      '💰 মাসের বেতন হিসাব',
-      'মোট OT: ${otHours}ঘন্টা | মোট বেতন: ৳${total.toStringAsFixed(0)}',
-      const NotificationDetails(
-        android: AndroidNotificationDetails(
-          'ot_salary',
-          'বেতন নোটিফিকেশন',
-          channelDescription: 'মাসিক বেতন হিসাব',
-          importance: Importance.defaultImportance,
-        ),
-      ),
-    );
-  }
-
   static Future<void> cancelReminder() async {
     await _plugin.cancel(1);
-  }
-
-  static tz.TZDateTime _nextInstanceOfTime(int hour, int minute) {
-    final now = tz.TZDateTime.now(tz.local);
-    var scheduled = tz.TZDateTime(tz.local, now.year, now.month, now.day, hour, minute);
-    if (scheduled.isBefore(now)) {
-      scheduled = scheduled.add(const Duration(days: 1));
-    }
-    return scheduled;
   }
 }
