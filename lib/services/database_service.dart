@@ -81,6 +81,7 @@ class DatabaseService {
   }
 
   static Future<void> saveOTDay(int year, int month, int day, double hours) async {
+    if (!isLoggedIn) return;
     final key = _monthKey(year, month);
     if (hours == 0) {
       await _db.ref('users/$uid/ot/$key/$day').remove();
