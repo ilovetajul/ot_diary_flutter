@@ -241,7 +241,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                  context,
                  MaterialPageRoute(builder: (_) => const AuthScreen()),
                    (_) => false,
-                 );           
+                 );   
+              }
             }),
           ]),
           const SizedBox(height: 32),
