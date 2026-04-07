@@ -5,6 +5,7 @@ import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 import 'package:path_provider/path_provider.dart';
 import '../models/user_profile.dart';
+import 'package:printing/printing.dart';
 
 class PdfService {
   static Future<File> generateMonthlyReport({
