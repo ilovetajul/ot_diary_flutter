@@ -17,8 +17,8 @@ class PdfService {
     final pdf = pw.Document();
 
     // ===== বাংলা ফন্ট লোড করুন =====
-    final fontData = await rootBundle.load('assets/fonts/HindSiliguri-Regular.ttf');
-    final boldFontData = await rootBundle.load('assets/fonts/HindSiliguri-Bold.ttf');
+    final banglaFont = await PdfGoogleFonts.hindSiliguriRegular();
+    final banglaFontBold = await PdfGoogleFonts.hindSiliguriSemiBold();
     final banglaFont = pw.Font.ttf(fontData);
     final banglaFontBold = pw.Font.ttf(boldFontData);
 
