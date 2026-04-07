@@ -1,5 +1,4 @@
 import 'dart:io';
-import 'package:flutter/services.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
@@ -17,11 +16,10 @@ class PdfService {
     final pdf = pw.Document();
 
     // ===== বাংলা ফন্ট লোড করুন =====
-    final banglaFont = await PdfGoogleFonts.hindSiliguriRegular();
-    final banglaFontBold = await PdfGoogleFonts.hindSiliguriSemiBold();
-    final banglaFont = pw.Font.ttf(fontData);
-    final banglaFontBold = pw.Font.ttf(boldFontData);
+     final banglaFont = await PdfGoogleFonts.hindSiliguriRegular();
+     final banglaFontBold = await PdfGoogleFonts.hindSiliguriSemiBold();
 
+    
     final months = [
       'জানুয়ারি','ফেব্রুয়ারি','মার্চ','এপ্রিল','মে','জুন',
       'জুলাই','আগস্ট','সেপ্টেম্বর','অক্টোবর','নভেম্বর','ডিসেম্বর'
