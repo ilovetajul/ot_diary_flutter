@@ -8,7 +8,8 @@ class DatabaseService {
   static final _auth = FirebaseAuth.instance;
   static final _db = FirebaseDatabase.instance;
 
-  static String get uid => _auth.currentUser!.uid;
+  static String get uid => _auth.currentUser?.uid ?? '';
+  static bool get isLoggedIn => _auth.currentUser != null;
   static String _monthKey(int y, int m) => '${y}_${m.toString().padLeft(2, '0')}';
 
   // ===== PROFILE =====
