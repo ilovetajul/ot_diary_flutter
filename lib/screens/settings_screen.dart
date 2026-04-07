@@ -231,11 +231,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ),
               );
               if (ok == true) {
-                await FirebaseAuth.instance.signOut();
+                 await FirebaseAuth.instance.signOut();
+                   // Local cache পরিষ্কার করুন
+                final prefs = await SharedPreferences.getInstance();
+                await prefs.clear();
                 if (!mounted) return;
-                Navigator.pushAndRemoveUntil(context,
-                    MaterialPageRoute(builder: (_) => const AuthScreen()), (_) => false);
-              }
+                 Navigator.pushAndRemoveUntil(
+                 context,
+                 MaterialPageRoute(builder: (_) => const AuthScreen()),
+                   (_) => false,
+                 );           
             }),
           ]),
           const SizedBox(height: 32),
