@@ -42,10 +42,11 @@ class DatabaseService {
 
   // ===== OT DATA =====
   static Future<Map<int, double>> getMonthData(int year, int month) async {
-    final key = _monthKey(year, month);
-    final prefs = await SharedPreferences.getInstance();
-    final localKey = 'ot_${uid}_$key';
-
+    if (!isLoggedIn) return {};
+  final key = _monthKey(year, month);
+  final prefs = await SharedPreferences.getInstance();
+  final localKey = 'ot_${uid}_$key';
+    
     try {
       final snap = await _db.ref('users/$uid/ot/$key').get();
       final Map<int, double> data = {};
