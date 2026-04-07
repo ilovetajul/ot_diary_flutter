@@ -37,8 +37,6 @@ jobs:
           # minSdkVersion 23 set করুন
           sed -i 's/minSdkVersion flutter.minSdkVersion/minSdkVersion 23/' android/app/build.gradle
           sed -i 's/minSdk = flutter.minSdkVersion/minSdk = 23/' android/app/build.gradle
-
-          .
           # App নাম পরিবর্তন
           sed -i 's/android:label="ot_diary"/android:label="OT Diary"/' android/app/src/main/AndroidManifest.xml
 
