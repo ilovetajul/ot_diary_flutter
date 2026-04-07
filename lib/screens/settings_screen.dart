@@ -6,6 +6,7 @@ import '../models/user_profile.dart';
 import '../services/database_service.dart';
 import '../services/notification_service.dart';
 import 'auth_screen.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class SettingsScreen extends StatefulWidget {
   final UserProfile profile;
