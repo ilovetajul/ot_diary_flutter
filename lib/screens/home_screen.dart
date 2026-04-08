@@ -25,14 +25,19 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   void initState() {
-    super.initState();
-    _profile = widget.profile;
+  super.initState();
+  _profile = widget.profile;
+  // Login এর পরে Firebase থেকে fresh data আনুন
+  WidgetsBinding.instance.addPostFrameCallback((_) {
     _loadData();
-  }
+  });
+}
 
   Future<void> _loadData() async {
-    final data = await DatabaseService.getMonthData(_currentYear, _currentMonth + 1);
-    setState(() => _otData = data);
+  setState(() => _otData = {}); // আগের data clear করুন
+  final data = await DatabaseService.getMonthData(
+      _currentYear, _currentMonth + 1);
+  if (mounted) setState(() => _otData = data);
   }
 
   void _changeMonth(int dir) {
