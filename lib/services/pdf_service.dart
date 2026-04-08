@@ -5,6 +5,7 @@ import 'package:printing/printing.dart';
 import 'package:path_provider/path_provider.dart';
 import '../models/user_profile.dart';
 import 'package:printing/printing.dart';
+import 'package:flutter/services.dart';
 
 class PdfService {
   static Future<File> generateMonthlyReport({
@@ -16,8 +17,10 @@ class PdfService {
     final pdf = pw.Document();
 
     // ===== বাংলা ফন্ট লোড করুন =====
-     final banglaFont = await PdfGoogleFonts.hindSiliguriRegular();
-     final banglaFontBold = await PdfGoogleFonts.hindSiliguriSemiBold();
+     final fontData = await rootBundle.load('assets/fonts/HindSiliguri-Regular.ttf');
+    final boldFontData = await rootBundle.load('assets/fonts/HindSiliguri-Bold.ttf');
+    final banglaFont = pw.Font.ttf(fontData);
+    final banglaFontBold = pw.Font.ttf(boldFontData);
 
     
     final months = [
