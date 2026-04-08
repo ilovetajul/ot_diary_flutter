@@ -123,31 +123,42 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   void _setReminder() async {
-    final time = await showTimePicker(
-      context: context,
-      initialTime: TimeOfDay(hour: _reminderHour, minute: _reminderMin),
-      builder: (_, child) => Theme(
-        data: Theme.of(context).copyWith(
-          colorScheme: const ColorScheme.dark(primary: AppColors.accent,
-              surface: AppColors.card, background: AppColors.bg),
+  final time = await showTimePicker(
+    context: context,
+    initialTime: TimeOfDay(hour: _reminderHour, minute: _reminderMin),
+    builder: (_, child) => Theme(
+      data: Theme.of(context).copyWith(
+        colorScheme: const ColorScheme.dark(
+          primary: AppColors.accent,
+          surface: AppColors.card,
         ),
-        child: child!,
       ),
+      child: child!,
+    ),
+  );
+  if (time == null) return;
+
+  setState(() {
+    _reminderHour = time.hour;
+    _reminderMin = time.minute;
+    _reminderOn = true;
+  });
+
+  try {
+    await NotificationService.cancelReminder();
+    await NotificationService.scheduleDailyReminder(
+      hour: time.hour,
+      minute: time.minute,
+      title: 'OT Diary রিমাইন্ডার',
+      body: 'আজকের OT ঘন্টা এন্ট্রি করুন!',
     );
-    if (time != null) {
-      setState(() {
-        _reminderHour = time.hour;
-        _reminderMin  = time.minute;
-        _reminderOn   = true;
-      });
-      await NotificationService.scheduleDailyReminder(
-        hour: time.hour, minute: time.minute,
-        title: '⚡ OT Diary রিমাইন্ডার',
-        body: 'আজকের OT ঘন্টা এন্ট্রি করুন!',
-      );
-      _showToast('✅ রিমাইন্ডার সেট: ${time.format(context)}');
-    }
+    _showToast('✅ রিমাইন্ডার সেট: ${time.format(context)}');
+  } catch (e) {
+    _showToast('❌ রিমাইন্ডার সেট করতে সমস্যা: $e');
   }
+  }
+
+  
 
   @override
   Widget build(BuildContext context) {
