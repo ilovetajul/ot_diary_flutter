@@ -39,6 +39,10 @@ jobs:
           sed -i 's/minSdk = flutter.minSdkVersion/minSdk = 23/' android/app/build.gradle
           # App নাম পরিবর্তন
           sed -i 's/android:label="ot_diary"/android:label="OT Diary"/' android/app/src/main/AndroidManifest.xml
+          # Permissions যোগ করুন
+          sed -i 's/<application/\<uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM"\/>\n    <uses-permission android:name="android.permission.USE_EXACT_ALARM"\/>\n    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"\/>\n    <application/' android/app/src/main/AndroidManifest.xml
+
+
 
       - name: 📦 Get dependencies
         run: flutter pub get
