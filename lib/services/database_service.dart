@@ -42,30 +42,36 @@ class DatabaseService {
 
   // ===== OT DATA =====
   static Future<Map<int, double>> getMonthData(int year, int month) async {
-    if (!isLoggedIn) return {};
+  if (!isLoggedIn) return {};
   final key = _monthKey(year, month);
-  final prefs = await SharedPreferences.getInstance();
-  final localKey = 'ot_${uid}_$key';
-    
-    try {
-      final snap = await _db.ref('users/$uid/ot/$key').get();
-      final Map<int, double> data = {};
-      if (snap.exists) {
-        final raw = snap.value as Map;
-        raw.forEach((k, v) => data[int.parse(k.toString())] = (v as num).toDouble());
-      }
-      // Save locally
-      await prefs.setString(localKey, jsonEncode(data.map((k, v) => MapEntry(k.toString(), v))));
-      return data;
-    } catch (_) {
-      // Offline fallback
-      final cached = prefs.getString(localKey);
-      if (cached != null) {
-        final Map decoded = jsonDecode(cached);
-        return decoded.map((k, v) => MapEntry(int.parse(k), (v as num).toDouble()));
-      }
-      return {};
+
+  try {
+    // সবসময় Firebase থেকে আনুন — cache নয়
+    final snap = await _db.ref('users/$uid/ot/$key').get();
+    final Map<int, double> data = {};
+    if (snap.exists) {
+      final raw = snap.value as Map;
+      raw.forEach((k, v) =>
+          data[int.parse(k.toString())] = (v as num).toDouble());
     }
+    // Cache আপডেট করুন
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(
+      'ot_${uid}_$key',
+      jsonEncode(data.map((k, v) => MapEntry(k.toString(), v))),
+    );
+    return data;
+  } catch (_) {
+    // Offline হলে cache থেকে আনুন
+    final prefs = await SharedPreferences.getInstance();
+    final cached = prefs.getString('ot_${uid}_$key');
+    if (cached != null) {
+      final Map decoded = jsonDecode(cached);
+      return decoded.map(
+          (k, v) => MapEntry(int.parse(k), (v as num).toDouble()));
+    }
+    return {};
+  }
   }
 
   static Stream<Map<int, double>> streamMonthData(int year, int month) {
