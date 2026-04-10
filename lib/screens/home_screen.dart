@@ -736,11 +736,24 @@ class _HomeScreenState extends State<HomeScreen> {
                   else _otData[day] = val;
                 });
               },
-              onEditingComplete: () {
-                final val = _otData[day] ?? 0;
-                _saveDay(day, val);
-                FocusScope.of(context).unfocus();
-              },
+              onChanged: (v) {
+  final val = double.tryParse(v) ?? 0;
+  setState(() {
+    if (val <= 0) _otData.remove(day);
+    else _otData[day] = val;
+  });
+},
+onEditingComplete: () {
+  final val = _otData[day] ?? 0;
+  _saveDay(day, val);
+  FocusScope.of(context).unfocus();
+},
+// focus হারালেও save হবে
+onTapOutside: (_) {
+  final val = _otData[day] ?? 0;
+  if (val > 0) _saveDay(day, val);
+  FocusScope.of(context).unfocus();
+},
             ),
           ),
           const SizedBox(width: 10),
