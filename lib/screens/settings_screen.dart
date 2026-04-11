@@ -232,15 +232,24 @@ class _SettingsScreenState extends State<SettingsScreen> {
               'Scheduled notification কাজ করে কিনা দেখুন',
               AppColors.purple,
               () async {
-                final result =
-                    await NotificationService.scheduleTestIn2Minutes();
-                if (result.startsWith('ok')) {
-                  _showToast('⏰ ২ মিনিট পরে notification আসবে! (${result.contains("inexact") ? "inexact" : "exact"})');
-                } else {
-                  _showToast('❌ সমস্যা: $result', error: true);
-                }
-              },
-            ),
+  // আগে permission চেক করুন
+  final android = FlutterLocalNotificationsPlugin()
+      .resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin>();
+  final exactOk = await android?.requestExactAlarmsPermission() ?? false;
+  
+  if (!exactOk) {
+    _showToast('❌ Exact Alarm permission নেই! ফোনের Settings → Apps → OT Diary → Permissions এ যান', error: true);
+    return;
+  }
+  
+  final result = await NotificationService.scheduleTestIn2Minutes();
+  if (result.startsWith('ok')) {
+    _showToast('⏰ ২ মিনিট পরে notification আসবে!');
+  } else {
+    _showToast('❌ $result', error: true);
+  }
+},
             // বন্ধ করুন
             _tile(
               '❌', 'রিমাইন্ডার বন্ধ করুন', 'নোটিফিকেশন বন্ধ করুন',
