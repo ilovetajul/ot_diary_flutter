@@ -11,9 +11,9 @@ class NotificationService {
   static const _chDesc = 'প্রতিদিন OT এন্ট্রির জন্য রিমাইন্ডার';
   static const _id     = 1001;
 
-  // ═══════════════════════════════════════
+  // ══════════════════════════════════════
   // INIT
-  // ═══════════════════════════════════════
+  // ══════════════════════════════════════
   static Future<void> init() async {
     tz.initializeTimeZones();
     tz.setLocalLocation(tz.getLocation('Asia/Dhaka'));
@@ -24,17 +24,6 @@ class NotificationService {
       ),
     );
 
-    // Android 11+ exact alarm permission চেক
-static Future<bool> checkExactAlarmPermission() async {
-  final android = _plugin.resolvePlatformSpecificImplementation<
-      AndroidFlutterLocalNotificationsPlugin>();
-  if (android == null) return false;
-  
-  final granted = await android.requestExactAlarmsPermission();
-  return granted ?? false;
-}
-
-    // Channel তৈরি
     await _plugin
         .resolvePlatformSpecificImplementation<
             AndroidFlutterLocalNotificationsPlugin>()
@@ -49,7 +38,6 @@ static Future<bool> checkExactAlarmPermission() async {
           ),
         );
 
-    // Permission
     await _plugin
         .resolvePlatformSpecificImplementation<
             AndroidFlutterLocalNotificationsPlugin>()
@@ -61,9 +49,9 @@ static Future<bool> checkExactAlarmPermission() async {
         ?.requestExactAlarmsPermission();
   }
 
-  // ═══════════════════════════════════════
-  // দৈনিক রিমাইন্ডার — exact + inexact fallback
-  // ═══════════════════════════════════════
+  // ══════════════════════════════════════
+  // দৈনিক রিমাইন্ডার
+  // ══════════════════════════════════════
   static Future<String> scheduleDailyReminder({
     required int hour,
     required int minute,
@@ -78,7 +66,6 @@ static Future<bool> checkExactAlarmPermission() async {
       var   sched    = tz.TZDateTime(
           location, now.year, now.month, now.day, hour, minute, 0);
 
-      // সময় পার হলে কাল
       if (sched.isBefore(now.add(const Duration(seconds: 10)))) {
         sched = sched.add(const Duration(days: 1));
       }
@@ -94,49 +81,39 @@ static Future<bool> checkExactAlarmPermission() async {
         ),
       );
 
-      // Exact চেষ্টা
       String mode = 'exact';
       try {
         await _plugin.zonedSchedule(
           _id, title, body, sched, details,
-          androidScheduleMode:
-              AndroidScheduleMode.exactAllowWhileIdle,
+          androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
           uiLocalNotificationDateInterpretation:
               UILocalNotificationDateInterpretation.absoluteTime,
           matchDateTimeComponents: DateTimeComponents.time,
         );
-      } catch (e1) {
-        // Exact ব্যর্থ — inexact চেষ্টা
+      } catch (_) {
         mode = 'inexact';
-        try {
-          await _plugin.zonedSchedule(
-            _id, title, body, sched, details,
-            androidScheduleMode:
-                AndroidScheduleMode.inexactAllowWhileIdle,
-            uiLocalNotificationDateInterpretation:
-                UILocalNotificationDateInterpretation.absoluteTime,
-            matchDateTimeComponents: DateTimeComponents.time,
-          );
-        } catch (e2) {
-          return 'error: $e2';
-        }
+        await _plugin.zonedSchedule(
+          _id, title, body, sched, details,
+          androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+          uiLocalNotificationDateInterpretation:
+              UILocalNotificationDateInterpretation.absoluteTime,
+          matchDateTimeComponents: DateTimeComponents.time,
+        );
       }
 
-      // সেভ
       final prefs = await SharedPreferences.getInstance();
       await prefs.setBool('notif_on', true);
       await prefs.setInt('notif_h',   hour);
       await prefs.setInt('notif_m',   minute);
-
       return 'ok:$mode';
     } catch (e) {
       return 'error: $e';
     }
   }
 
-  // ═══════════════════════════════════════
+  // ══════════════════════════════════════
   // বাতিল
-  // ═══════════════════════════════════════
+  // ══════════════════════════════════════
   static Future<void> cancelReminder() async {
     await _plugin.cancel(_id);
     final prefs = await SharedPreferences.getInstance();
@@ -145,9 +122,9 @@ static Future<bool> checkExactAlarmPermission() async {
     await prefs.remove('notif_m');
   }
 
-  // ═══════════════════════════════════════
-  // Boot / App restart এ reschedule
-  // ═══════════════════════════════════════
+  // ══════════════════════════════════════
+  // Reboot এ reschedule
+  // ══════════════════════════════════════
   static Future<void> rescheduleOnBoot() async {
     final prefs = await SharedPreferences.getInstance();
     if (!(prefs.getBool('notif_on') ?? false)) return;
@@ -161,9 +138,9 @@ static Future<bool> checkExactAlarmPermission() async {
     );
   }
 
-  // ═══════════════════════════════════════
+  // ══════════════════════════════════════
   // Status
-  // ═══════════════════════════════════════
+  // ══════════════════════════════════════
   static Future<Map<String, dynamic>> getReminderStatus() async {
     final prefs = await SharedPreferences.getInstance();
     return {
@@ -173,9 +150,9 @@ static Future<bool> checkExactAlarmPermission() async {
     };
   }
 
-  // ═══════════════════════════════════════
+  // ══════════════════════════════════════
   // তাৎক্ষণিক Test
-  // ═══════════════════════════════════════
+  // ══════════════════════════════════════
   static Future<void> showTestNotification() async {
     await _plugin.show(
       9999,
@@ -193,9 +170,9 @@ static Future<bool> checkExactAlarmPermission() async {
     );
   }
 
-  // ═══════════════════════════════════════
+  // ══════════════════════════════════════
   // ২ মিনিট পরে scheduled test
-  // ═══════════════════════════════════════
+  // ══════════════════════════════════════
   static Future<String> scheduleTestIn2Minutes() async {
     try {
       final location = tz.getLocation('Asia/Dhaka');
@@ -219,8 +196,7 @@ static Future<bool> checkExactAlarmPermission() async {
           'Scheduled Test ✅',
           '২ মিনিট আগে সেট করা! Scheduled notification কাজ করছে।',
           sched, details,
-          androidScheduleMode:
-              AndroidScheduleMode.exactAllowWhileIdle,
+          androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
           uiLocalNotificationDateInterpretation:
               UILocalNotificationDateInterpretation.absoluteTime,
         );
@@ -231,8 +207,7 @@ static Future<bool> checkExactAlarmPermission() async {
           'Scheduled Test ✅',
           '২ মিনিট আগে সেট করা! Scheduled notification কাজ করছে।',
           sched, details,
-          androidScheduleMode:
-              AndroidScheduleMode.inexactAllowWhileIdle,
+          androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
           uiLocalNotificationDateInterpretation:
               UILocalNotificationDateInterpretation.absoluteTime,
         );
