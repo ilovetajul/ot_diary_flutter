@@ -191,17 +191,16 @@ await _plugin.zonedSchedule(
       );
 
       String mode = 'exact';
-      try {
-        await _plugin.zonedSchedule(
-          8888,
-          'Scheduled Test ✅',
-          '২ মিনিট আগে সেট করা! Scheduled notification কাজ করছে।',
-          sched, details,
-          androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-          uiLocalNotificationDateInterpretation:
-              UILocalNotificationDateInterpretation.absoluteTime,
-        );
-      } catch (_) {
+      // Android 11 এ exact alarm নেই — সরাসরি inexact ব্যবহার করুন
+await _plugin.zonedSchedule(
+  _id, title, body, sched, details,
+  androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+  uiLocalNotificationDateInterpretation:
+      UILocalNotificationDateInterpretation.absoluteTime,
+  matchDateTimeComponents: DateTimeComponents.time,
+);
+      
+      catch (_) {
         mode = 'inexact';
         await _plugin.zonedSchedule(
           8888,
