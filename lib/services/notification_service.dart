@@ -24,6 +24,16 @@ class NotificationService {
       ),
     );
 
+    // Android 11+ exact alarm permission চেক
+static Future<bool> checkExactAlarmPermission() async {
+  final android = _plugin.resolvePlatformSpecificImplementation<
+      AndroidFlutterLocalNotificationsPlugin>();
+  if (android == null) return false;
+  
+  final granted = await android.requestExactAlarmsPermission();
+  return granted ?? false;
+}
+
     // Channel তৈরি
     await _plugin
         .resolvePlatformSpecificImplementation<
