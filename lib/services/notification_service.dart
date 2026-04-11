@@ -82,15 +82,16 @@ class NotificationService {
       );
 
       String mode = 'exact';
-      try {
-        await _plugin.zonedSchedule(
-          _id, title, body, sched, details,
-          androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-          uiLocalNotificationDateInterpretation:
-              UILocalNotificationDateInterpretation.absoluteTime,
-          matchDateTimeComponents: DateTimeComponents.time,
-        );
-      } catch (_) {
+// Android 11 এ exact alarm নেই — সরাসরি inexact ব্যবহার করুন
+await _plugin.zonedSchedule(
+  _id, title, body, sched, details,
+  androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+  uiLocalNotificationDateInterpretation:
+      UILocalNotificationDateInterpretation.absoluteTime,
+  matchDateTimeComponents: DateTimeComponents.time,
+); 
+      
+      catch (_) {
         mode = 'inexact';
         await _plugin.zonedSchedule(
           _id, title, body, sched, details,
