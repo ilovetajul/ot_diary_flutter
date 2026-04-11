@@ -81,32 +81,21 @@ class NotificationService {
         ),
       );
 
-      String mode = 'exact';
-// Android 11 এ exact alarm নেই — সরাসরি inexact ব্যবহার করুন
-await _plugin.zonedSchedule(
-  _id, title, body, sched, details,
-  androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
-  uiLocalNotificationDateInterpretation:
-      UILocalNotificationDateInterpretation.absoluteTime,
-  matchDateTimeComponents: DateTimeComponents.time,
-); 
-      
-      catch (_) {
-        mode = 'inexact';
-        await _plugin.zonedSchedule(
-          _id, title, body, sched, details,
-          androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
-          uiLocalNotificationDateInterpretation:
-              UILocalNotificationDateInterpretation.absoluteTime,
-          matchDateTimeComponents: DateTimeComponents.time,
-        );
-      }
+      // Android 11 — inexact সরাসরি ব্যবহার করুন
+      await _plugin.zonedSchedule(
+        _id, title, body, sched, details,
+        androidScheduleMode:
+            AndroidScheduleMode.inexactAllowWhileIdle,
+        uiLocalNotificationDateInterpretation:
+            UILocalNotificationDateInterpretation.absoluteTime,
+        matchDateTimeComponents: DateTimeComponents.time,
+      );
 
       final prefs = await SharedPreferences.getInstance();
       await prefs.setBool('notif_on', true);
       await prefs.setInt('notif_h',   hour);
       await prefs.setInt('notif_m',   minute);
-      return 'ok:$mode';
+      return 'ok:inexact';
     } catch (e) {
       return 'error: $e';
     }
@@ -133,7 +122,8 @@ await _plugin.zonedSchedule(
     final m = prefs.getInt('notif_m');
     if (h == null || m == null) return;
     await scheduleDailyReminder(
-      hour: h, minute: m,
+      hour:  h,
+      minute: m,
       title: 'OT Diary রিমাইন্ডার ⚡',
       body:  'আজকের OT ঘন্টা এন্ট্রি করুন!',
     );
@@ -190,29 +180,20 @@ await _plugin.zonedSchedule(
         ),
       );
 
-      String mode = 'exact';
-      // Android 11 এ exact alarm নেই — সরাসরি inexact ব্যবহার করুন
-await _plugin.zonedSchedule(
-  _id, title, body, sched, details,
-  androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
-  uiLocalNotificationDateInterpretation:
-      UILocalNotificationDateInterpretation.absoluteTime,
-  matchDateTimeComponents: DateTimeComponents.time,
-);
-      
-      catch (_) {
-        mode = 'inexact';
-        await _plugin.zonedSchedule(
-          8888,
-          'Scheduled Test ✅',
-          '২ মিনিট আগে সেট করা! Scheduled notification কাজ করছে।',
-          sched, details,
-          androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
-          uiLocalNotificationDateInterpretation:
-              UILocalNotificationDateInterpretation.absoluteTime,
-        );
-      }
-      return 'ok:$mode';
+      // Android 11 — inexact সরাসরি ব্যবহার করুন
+      await _plugin.zonedSchedule(
+        8888,
+        'Scheduled Test ✅',
+        '২ মিনিট আগে সেট করা! Scheduled notification কাজ করছে।',
+        sched,
+        details,
+        androidScheduleMode:
+            AndroidScheduleMode.inexactAllowWhileIdle,
+        uiLocalNotificationDateInterpretation:
+            UILocalNotificationDateInterpretation.absoluteTime,
+      );
+
+      return 'ok:inexact';
     } catch (e) {
       return 'error: $e';
     }
