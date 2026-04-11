@@ -43,12 +43,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
       content: Text(msg,
           style: const TextStyle(fontWeight: FontWeight.w600)),
-      backgroundColor: error ? AppColors.red.withOpacity(0.8) : AppColors.card2,
+      backgroundColor:
+          error ? AppColors.red.withOpacity(0.85) : AppColors.card2,
       behavior: SnackBarBehavior.floating,
-      shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(100)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(100)),
       margin: const EdgeInsets.fromLTRB(16, 0, 16, 20),
-      duration: Duration(seconds: error ? 5 : 2),
+      duration: Duration(seconds: error ? 6 : 2),
     ));
   }
 
@@ -60,8 +60,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final rateCtrl  = TextEditingController(text: widget.profile.rate.toString());
 
     showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
+      context: context, isScrollControlled: true,
       backgroundColor: AppColors.card,
       shape: const RoundedRectangleBorder(
           borderRadius: BorderRadius.vertical(top: Radius.circular(28))),
@@ -140,13 +139,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
         hintText: hint,
         hintStyle: TextStyle(color: AppColors.muted, fontSize: 12),
         filled: true, fillColor: AppColors.card2,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(12),
             borderSide: const BorderSide(color: AppColors.border)),
-        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12),
+        enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
             borderSide: const BorderSide(color: AppColors.border)),
-        focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12),
-            borderSide: const BorderSide(color: AppColors.accent, width: 1.5)),
+        focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide:
+                const BorderSide(color: AppColors.accent, width: 1.5)),
       ),
     );
   }
@@ -158,16 +161,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
       builder: (_, child) => Theme(
         data: Theme.of(context).copyWith(
           colorScheme: const ColorScheme.dark(
-            primary: AppColors.accent, surface: AppColors.card),
+              primary: AppColors.accent, surface: AppColors.card),
         ),
         child: child!,
       ),
     );
     if (time == null) return;
 
-    // Result string দেখুন — error হলে দেখাবে
     final result = await NotificationService.scheduleDailyReminder(
-      hour: time.hour, minute: time.minute,
+      hour:  time.hour,
+      minute: time.minute,
       title: 'OT Diary রিমাইন্ডার ⚡',
       body:  'আজকের OT ঘন্টা এন্ট্রি করুন!',
     );
@@ -178,10 +181,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
         _reminderMin  = time.minute;
         _reminderOn   = true;
       });
-      final mode = result.contains('inexact') ? ' (inexact)' : '';
+      final mode = result.contains('inexact') ? ' (inexact mode)' : '';
       _showToast('✅ রিমাইন্ডার সেট: ${time.format(context)}$mode');
     } else {
-      // Error সহ দেখান
       _showToast('❌ সমস্যা: $result', error: true);
     }
   }
@@ -193,7 +195,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
       appBar: AppBar(
         backgroundColor: AppColors.bg,
         title: const Text('⚙️ সেটিংস',
-            style: TextStyle(fontWeight: FontWeight.w800, color: AppColors.text)),
+            style: TextStyle(
+                fontWeight: FontWeight.w800, color: AppColors.text)),
       ),
       body: ListView(
         padding: const EdgeInsets.all(16),
@@ -207,7 +210,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
           _sectionLabel('নোটিফিকেশন'),
           _settingsCard([
-            // দৈনিক রিমাইন্ডার
             _tile(
               '🔔', 'দৈনিক রিমাইন্ডার',
               _loadingReminder
@@ -217,42 +219,35 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       : 'এখনো সেট করা হয়নি',
               AppColors.gold, _setReminder,
             ),
-            // তাৎক্ষণিক test
             _tile(
-              '🧪', 'Test Notification', 'এখনই একটি notification দেখুন',
+              '🧪', 'Test Notification',
+              'এখনই একটি notification দেখুন',
               AppColors.accent,
               () async {
                 await NotificationService.showTestNotification();
                 _showToast('📨 Test notification পাঠানো হয়েছে!');
               },
             ),
-            // ২ মিনিট পরে scheduled test
             _tile(
               '⏰', '২ মিনিট পরে Test',
               'Scheduled notification কাজ করে কিনা দেখুন',
               AppColors.purple,
               () async {
-  // আগে permission চেক করুন
-  final android = FlutterLocalNotificationsPlugin()
-      .resolvePlatformSpecificImplementation<
-          AndroidFlutterLocalNotificationsPlugin>();
-  final exactOk = await android?.requestExactAlarmsPermission() ?? false;
-  
-  if (!exactOk) {
-    _showToast('❌ Exact Alarm permission নেই! ফোনের Settings → Apps → OT Diary → Permissions এ যান', error: true);
-    return;
-  }
-  
-  final result = await NotificationService.scheduleTestIn2Minutes();
-  if (result.startsWith('ok')) {
-    _showToast('⏰ ২ মিনিট পরে notification আসবে!');
-  } else {
-    _showToast('❌ $result', error: true);
-  }
-},
-            // বন্ধ করুন
+                final result =
+                    await NotificationService.scheduleTestIn2Minutes();
+                if (result.startsWith('ok')) {
+                  final mode = result.contains('inexact')
+                      ? 'inexact mode'
+                      : 'exact mode';
+                  _showToast('⏰ ২ মিনিট পরে আসবে! ($mode)');
+                } else {
+                  _showToast('❌ $result', error: true);
+                }
+              },
+            ),
             _tile(
-              '❌', 'রিমাইন্ডার বন্ধ করুন', 'নোটিফিকেশন বন্ধ করুন',
+              '❌', 'রিমাইন্ডার বন্ধ করুন',
+              'নোটিফিকেশন বন্ধ করুন',
               AppColors.red,
               () async {
                 await NotificationService.cancelReminder();
@@ -274,15 +269,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   child: const Center(
                       child: Text('☁️', style: TextStyle(fontSize: 20)))),
               title: const Text('Firebase ব্যাকআপ',
-                  style: TextStyle(color: AppColors.text, fontWeight: FontWeight.w600)),
+                  style: TextStyle(color: AppColors.text,
+                      fontWeight: FontWeight.w600)),
               subtitle: const Text('ডেটা স্বয়ংক্রিয়ভাবে সেভ হচ্ছে',
                   style: TextStyle(color: AppColors.muted, fontSize: 12)),
               trailing: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
                   color: AppColors.green.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: AppColors.green.withOpacity(0.3)),
+                  border:
+                      Border.all(color: AppColors.green.withOpacity(0.3)),
                 ),
                 child: const Text('✅ চালু',
                     style: TextStyle(color: AppColors.green,
@@ -332,44 +330,52 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ]),
           const SizedBox(height: 32),
 
-          const Center(child: Text('OT Diary v2.0 · Made with ❤️',
-              style: TextStyle(color: AppColors.muted, fontSize: 12))),
+          const Center(
+              child: Text('OT Diary v2.0 · Made with ❤️',
+                  style: TextStyle(color: AppColors.muted, fontSize: 12))),
         ],
       ),
     );
   }
 
   Widget _sectionLabel(String label) => Padding(
-      padding: const EdgeInsets.only(bottom: 10, left: 4),
-      child: Text(label.toUpperCase(),
-          style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700,
-              letterSpacing: 1.5, color: AppColors.muted)));
+        padding: const EdgeInsets.only(bottom: 10, left: 4),
+        child: Text(label.toUpperCase(),
+            style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700,
+                letterSpacing: 1.5, color: AppColors.muted)),
+      );
 
   Widget _settingsCard(List<Widget> children) => Container(
-      decoration: BoxDecoration(color: AppColors.card,
+        decoration: BoxDecoration(
+          color: AppColors.card,
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: AppColors.border)),
-      child: Column(children: children.map((w) {
-        final idx = children.indexOf(w);
-        return Column(children: [
-          w,
-          if (idx < children.length - 1)
-            const Divider(height: 1, color: AppColors.border),
-        ]);
-      }).toList()));
+          border: Border.all(color: AppColors.border),
+        ),
+        child: Column(children: children.map((w) {
+          final idx = children.indexOf(w);
+          return Column(children: [
+            w,
+            if (idx < children.length - 1)
+              const Divider(height: 1, color: AppColors.border),
+          ]);
+        }).toList()),
+      );
 
+  // ─── 5 argument — icon, title, sub, color, onTap ───
   Widget _tile(String icon, String title, String sub,
       Color color, VoidCallback onTap) {
     return ListTile(
       onTap: onTap,
       leading: Container(width: 40, height: 40,
-          decoration: BoxDecoration(color: color.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(12)),
-          child: Center(child: Text(icon,
-              style: const TextStyle(fontSize: 20)))),
+          decoration: BoxDecoration(
+            color: color.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Center(
+              child: Text(icon, style: const TextStyle(fontSize: 20)))),
       title: Text(title,
-          style: const TextStyle(color: AppColors.text,
-              fontWeight: FontWeight.w600)),
+          style: const TextStyle(
+              color: AppColors.text, fontWeight: FontWeight.w600)),
       subtitle: Text(sub,
           style: TextStyle(color: AppColors.muted, fontSize: 12)),
       trailing: const Icon(Icons.chevron_right,
