@@ -1,5 +1,4 @@
 import 'dart:io';
-import 'package:flutter/services.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
@@ -7,14 +6,13 @@ import 'package:path_provider/path_provider.dart';
 import '../models/user_profile.dart';
 
 class PdfService {
-  // ── যুক্তাক্ষর এড়িয়ে সহজ বাংলা শব্দ ──
   static const _months = [
-    'জানুয়ারি', 'ফেব্রুয়ারি', 'মার্চ', 'এপ্রিল',
-    'মে', 'জুন', 'জুলাই', 'আগস্ট',
-    'সেপ্টেম্বর', 'অক্টোবর', 'নভেম্বর', 'ডিসেম্বর',
+    'January', 'February', 'March', 'April',
+    'May', 'June', 'July', 'August',
+    'September', 'October', 'November', 'December',
   ];
   static const _days = [
-    'রবি', 'সোম', 'মঙ্গল', 'বুধ', 'বৃহঃ', 'শুক্র', 'শনি',
+    'Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat',
   ];
 
   static Future<File> generateMonthlyReport({
@@ -23,17 +21,7 @@ class PdfService {
     required int month,
     required int year,
   }) async {
-    // ── Font লোড ──
-    final fontData     = await rootBundle.load('assets/fonts/HindSiliguri-Regular.ttf');
-    final boldFontData = await rootBundle.load('assets/fonts/HindSiliguri-Bold.ttf');
-    final font     = pw.Font.ttf(fontData);
-    final fontBold = pw.Font.ttf(boldFontData);
-
-    final theme = pw.ThemeData.withFont(
-      base: font, bold: fontBold,
-      italic: font, boldItalic: fontBold,
-    );
-    final pdf = pw.Document(theme: theme);
+    final pdf = pw.Document();
 
     final monthName  = _months[month];
     final totalHours = otData.values.fold(0.0, (a, b) => a + b);
@@ -45,24 +33,23 @@ class PdfService {
     pw.TextStyle ts(double size,
         {bool bold = false, PdfColor color = PdfColors.black}) =>
         pw.TextStyle(
-          font: bold ? fontBold : font,
           fontSize: size,
+          fontWeight: bold ? pw.FontWeight.bold : pw.FontWeight.normal,
           color: color,
         );
 
     pw.Widget t(String text, double size,
         {bool bold = false, PdfColor color = PdfColors.black}) =>
-        pw.Text(text,
-            style: ts(size, bold: bold, color: color),
-            textDirection: pw.TextDirection.ltr);
+        pw.Text(text, style: ts(size, bold: bold, color: color));
 
     pw.Widget cell(String text,
-        {bool bold = false, PdfColor color = PdfColors.black}) =>
+        {bool bold = false,
+        PdfColor color = PdfColors.black,
+        pw.Alignment align = pw.Alignment.centerLeft}) =>
         pw.Container(
-          padding: const pw.EdgeInsets.symmetric(horizontal: 5, vertical: 5),
-          child: pw.Text(text,
-              style: ts(10.5, bold: bold, color: color),
-              textDirection: pw.TextDirection.ltr),
+          padding: const pw.EdgeInsets.symmetric(horizontal: 6, vertical: 6),
+          alignment: align,
+          child: pw.Text(text, style: ts(10.5, bold: bold, color: color)),
         );
 
     pw.Widget salRow(String label, String value,
@@ -72,12 +59,8 @@ class PdfService {
           child: pw.Row(
             mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
             children: [
-              pw.Text(label,
-                  style: ts(11.5, bold: bold, color: color),
-                  textDirection: pw.TextDirection.ltr),
-              pw.Text(value,
-                  style: ts(11.5, bold: bold, color: color),
-                  textDirection: pw.TextDirection.ltr),
+              pw.Text(label, style: ts(11.5, bold: bold, color: color)),
+              pw.Text(value, style: ts(11.5, bold: bold, color: color)),
             ],
           ),
         );
@@ -86,7 +69,6 @@ class PdfService {
       pw.MultiPage(
         pageFormat: PdfPageFormat.a4,
         margin: const pw.EdgeInsets.all(32),
-        theme: theme,
 
         // ── Header ──
         header: (ctx) => pw.Column(
@@ -100,16 +82,18 @@ class PdfService {
                   children: [
                     pw.Text('OT DIARY',
                         style: pw.TextStyle(
-                          font: fontBold, fontSize: 28,
-                          color: PdfColors.teal700, letterSpacing: 2,
+                          fontSize: 28,
+                          fontWeight: pw.FontWeight.bold,
+                          color: PdfColors.teal700,
+                          letterSpacing: 3,
                         )),
                     pw.SizedBox(height: 3),
-                    // "ওভারটাইম" → যুক্তাক্ষর সমস্যা এড়াতে ভেঙে লিখি
-                    t('মাসিক OT রিপোর্ট', 13, color: PdfColors.grey700),
+                    t('Monthly Overtime Report', 12, color: PdfColors.grey700),
                   ],
                 ),
                 pw.Container(
-                  padding: const pw.EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+                  padding: const pw.EdgeInsets.symmetric(
+                      horizontal: 16, vertical: 10),
                   decoration: pw.BoxDecoration(
                     color: PdfColors.teal700,
                     borderRadius: pw.BorderRadius.circular(6),
@@ -128,7 +112,7 @@ class PdfService {
         // ── Body ──
         build: (ctx) => [
 
-          // প্রোফাইল বক্স
+          // Profile box
           pw.Container(
             padding: const pw.EdgeInsets.all(14),
             decoration: pw.BoxDecoration(
@@ -144,15 +128,16 @@ class PdfService {
                   children: [
                     t(profile.name, 17, bold: true),
                     pw.SizedBox(height: 4),
-                    t('ID :  ${profile.idNo}', 12, color: PdfColors.grey700),
+                    t('Employee ID : ${profile.idNo}', 12,
+                        color: PdfColors.grey700),
                   ],
                 ),
                 pw.Column(
                   crossAxisAlignment: pw.CrossAxisAlignment.end,
                   children: [
-                    t('OT রেট :  ${profile.rate} টাকা / ঘন্টা', 12),
+                    t('OT Rate : ${profile.rate} BDT / Hour', 12),
                     pw.SizedBox(height: 4),
-                    t('মূল বেতন :  ${profile.basic} টাকা', 12),
+                    t('Basic Salary : ${profile.basic} BDT', 12),
                   ],
                 ),
               ],
@@ -160,40 +145,44 @@ class PdfService {
           ),
           pw.SizedBox(height: 16),
 
-          // সারসংক্ষেপ ৩ কার্ড
+          // Summary 3 cards
           pw.Row(children: [
-            _card('মোট OT', '$totalHours ঘন্টা',
-                PdfColors.teal700, font, fontBold),
+            _card('Total OT Hours', '$totalHours hrs',
+                PdfColors.teal700),
             pw.SizedBox(width: 8),
-            _card('OT আয়', '${otEarning.toStringAsFixed(0)} টাকা',
-                PdfColors.deepOrange, font, fontBold),
+            _card('OT Earnings',
+                '${otEarning.toStringAsFixed(0)} BDT',
+                PdfColors.deepOrange),
             pw.SizedBox(width: 8),
-            _card('মোট বেতন', '${totalSal.toStringAsFixed(0)} টাকা',
-                PdfColors.amber800, font, fontBold),
+            _card('Total Salary',
+                '${totalSal.toStringAsFixed(0)} BDT',
+                PdfColors.amber800),
           ]),
           pw.SizedBox(height: 18),
 
-          t('দৈনিক OT বিবরণ', 14, bold: true),
+          t('Daily OT Details', 14, bold: true),
           pw.SizedBox(height: 8),
 
-          // টেবিল
+          // Table
           pw.Table(
-            border: pw.TableBorder.all(color: PdfColors.grey300, width: 0.5),
+            border: pw.TableBorder.all(
+                color: PdfColors.grey300, width: 0.5),
             columnWidths: {
               0: const pw.FlexColumnWidth(2.0),
-              1: const pw.FlexColumnWidth(1.4),
+              1: const pw.FlexColumnWidth(1.2),
               2: const pw.FlexColumnWidth(1.8),
               3: const pw.FlexColumnWidth(2.0),
             },
             children: [
               // Header row
               pw.TableRow(
-                decoration: const pw.BoxDecoration(color: PdfColors.teal700),
+                decoration:
+                    const pw.BoxDecoration(color: PdfColors.teal700),
                 children: [
-                  cell('তারিখ', bold: true, color: PdfColors.white),
-                  cell('দিন', bold: true, color: PdfColors.white),
-                  cell('OT ঘন্টা', bold: true, color: PdfColors.white),
-                  cell('আয় (টাকা)', bold: true, color: PdfColors.white),
+                  cell('Date', bold: true, color: PdfColors.white),
+                  cell('Day', bold: true, color: PdfColors.white),
+                  cell('OT Hours', bold: true, color: PdfColors.white),
+                  cell('Earnings', bold: true, color: PdfColors.white),
                 ],
               ),
               // Data rows
@@ -202,25 +191,29 @@ class PdfService {
                 final d   = e.value;
                 final dow = DateTime(year, month + 1, d).weekday % 7;
                 final hrs = otData[d] ?? 0.0;
-                final bg  = idx.isEven ? PdfColors.white : PdfColors.grey50;
+                final bg  = idx.isEven
+                    ? PdfColors.white
+                    : PdfColors.grey50;
                 return pw.TableRow(
                   decoration: pw.BoxDecoration(color: bg),
                   children: [
-                    cell('$d  $monthName'),
+                    cell('$d $monthName $year'),
                     cell(_days[dow]),
-                    cell('$hrs ঘন্টা', color: PdfColors.teal700),
-                    cell('${(hrs * profile.rate).toStringAsFixed(0)} টাকা'),
+                    cell('$hrs hrs', color: PdfColors.teal700),
+                    cell('${(hrs * profile.rate).toStringAsFixed(0)} BDT'),
                   ],
                 );
               }).toList(),
-              // মোট row
+              // Total row
               pw.TableRow(
-                decoration: const pw.BoxDecoration(color: PdfColors.teal50),
+                decoration:
+                    const pw.BoxDecoration(color: PdfColors.teal50),
                 children: [
-                  cell('মোট', bold: true),
-                  cell('${otData.length} দিন', bold: true),
-                  cell('$totalHours ঘন্টা', bold: true, color: PdfColors.teal700),
-                  cell('${otEarning.toStringAsFixed(0)} টাকা',
+                  cell('Total', bold: true),
+                  cell('${otData.length} days', bold: true),
+                  cell('$totalHours hrs',
+                      bold: true, color: PdfColors.teal700),
+                  cell('${otEarning.toStringAsFixed(0)} BDT',
                       bold: true, color: PdfColors.teal700),
                 ],
               ),
@@ -228,31 +221,32 @@ class PdfService {
           ),
           pw.SizedBox(height: 18),
 
-          // বেতন বিবরণ বক্স
+          // Salary breakdown box
           pw.Container(
-            padding: const pw.EdgeInsets.all(14),
+            padding: const pw.EdgeInsets.all(16),
             decoration: pw.BoxDecoration(
-              border: pw.Border.all(color: PdfColors.amber800, width: 1.5),
+              border: pw.Border.all(
+                  color: PdfColors.amber800, width: 1.5),
               borderRadius: pw.BorderRadius.circular(6),
             ),
             child: pw.Column(
               crossAxisAlignment: pw.CrossAxisAlignment.start,
               children: [
-                t('বেতন বিবরণ', 14, bold: true),
+                t('Salary Breakdown', 14, bold: true),
                 pw.SizedBox(height: 8),
                 pw.Divider(color: PdfColors.grey300),
-                salRow('মূল বেতন',
-                    '${profile.basic.toStringAsFixed(0)} টাকা'),
-                salRow('ভাতা',
-                    '${profile.allowance.toStringAsFixed(0)} টাকা'),
+                salRow('Basic Salary',
+                    '${profile.basic.toStringAsFixed(0)} BDT'),
+                salRow('Allowance',
+                    '${profile.allowance.toStringAsFixed(0)} BDT'),
                 salRow(
-                  'OT আয়  ($totalHours ঘন্টা x ${profile.rate} টাকা)',
-                  '${otEarning.toStringAsFixed(0)} টাকা',
+                  'OT Earnings  ($totalHours hrs x ${profile.rate} BDT)',
+                  '${otEarning.toStringAsFixed(0)} BDT',
                 ),
                 pw.Divider(color: PdfColors.grey400, thickness: 1),
                 salRow(
-                  'মোট বেতন',
-                  '${totalSal.toStringAsFixed(0)} টাকা',
+                  'Total Salary',
+                  '${totalSal.toStringAsFixed(0)} BDT',
                   bold: true,
                   color: PdfColors.amber900,
                 ),
@@ -262,7 +256,7 @@ class PdfService {
           pw.SizedBox(height: 14),
 
           t(
-            'তৈরি :  ${DateTime.now().day} / '
+            'Generated : ${DateTime.now().day} / '
             '${DateTime.now().month} / ${DateTime.now().year}'
             '   |   OT Diary App',
             10,
@@ -278,23 +272,26 @@ class PdfService {
     return file;
   }
 
-  static pw.Widget _card(String label, String value,
-      PdfColor bg, pw.Font font, pw.Font fontBold) {
+  static pw.Widget _card(String label, String value, PdfColor bg) {
     return pw.Expanded(
       child: pw.Container(
-        padding: const pw.EdgeInsets.all(10),
+        padding: const pw.EdgeInsets.all(12),
         decoration: pw.BoxDecoration(
-          color: bg, borderRadius: pw.BorderRadius.circular(6)),
+          color: bg,
+          borderRadius: pw.BorderRadius.circular(6),
+        ),
         child: pw.Column(
           crossAxisAlignment: pw.CrossAxisAlignment.start,
           children: [
             pw.Text(label,
-                style: pw.TextStyle(font: font, fontSize: 10, color: PdfColors.white),
-                textDirection: pw.TextDirection.ltr),
+                style: pw.TextStyle(
+                    fontSize: 10, color: PdfColors.white)),
             pw.SizedBox(height: 5),
             pw.Text(value,
-                style: pw.TextStyle(font: fontBold, fontSize: 15, color: PdfColors.white),
-                textDirection: pw.TextDirection.ltr),
+                style: pw.TextStyle(
+                    fontSize: 16,
+                    fontWeight: pw.FontWeight.bold,
+                    color: PdfColors.white)),
           ],
         ),
       ),
@@ -303,7 +300,7 @@ class PdfService {
 
   static Future<void> sharePdf(File pdfFile) async {
     await Printing.sharePdf(
-      bytes: await pdfFile.readAsBytes(),
+      bytes:    await pdfFile.readAsBytes(),
       filename: pdfFile.path.split('/').last,
     );
   }
