@@ -40,9 +40,10 @@ dev_dependencies:
 flutter:
   uses-material-design: true
 
-  # ফন্ট ফাইল
-  assets:
+  # ফন্ট 
+    assets:
     - assets/fonts/
+    - assets/icon/
 
   fonts:
     - family: HindSiliguri
