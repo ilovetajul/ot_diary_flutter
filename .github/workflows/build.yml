@@ -56,3 +56,17 @@ jobs:
           name: OT-Diary-Release-APK
           path: build/app/outputs/flutter-apk/
           retention-days: 30
+
+       - name: 🎨 Generate App Icon
+        run: |
+          flutter pub add flutter_launcher_icons
+          cat > flutter_launcher_icons.yaml << 'EOF'
+          flutter_launcher_icons:
+            android: true
+            ios: false
+            image_path: "assets/icon/app_icon.png"
+            min_sdk_android: 21
+            adaptive_icon_background: "#050912"
+            adaptive_icon_foreground: "assets/icon/app_icon.png"
+          EOF
+          dart run flutter_launcher_icons
