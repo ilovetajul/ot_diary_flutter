@@ -41,7 +41,7 @@ flutter:
   uses-material-design: true
 
   # ফন্ট 
-    assets:
+  assets:
     - assets/fonts/
     - assets/icon/
 
