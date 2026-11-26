@@ -15,14 +15,23 @@ jobs:
     steps:
       - name: Checkout feature branch
         uses: actions/checkout@v4
+      - name: Set up Java 17 for Android Gradle
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Confirm Java version
+        run: java -version
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
           flutter-version: '3.50.1'
           channel: stable
           cache: true
-      - name: Flutter version
-        run: flutter --version
+      - name: Flutter version and selected JDK
+        run: |
+          flutter --version
+          flutter doctor --verbose
       - name: Get dependencies
         run: flutter pub get
       - name: Analyze
