@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../app_theme.dart';
 import '../models/user_profile.dart';
@@ -156,7 +156,7 @@ class _AuthScreenState extends State<AuthScreen> with TickerProviderStateMixin {
                   borderRadius: BorderRadius.circular(28),
                   boxShadow: [
                     BoxShadow(
-                      color: AppColors.accent.withOpacity(0.35),
+                      color: AppColors.accent.withValues(alpha: 0.35),
                       blurRadius: 40,
                       spreadRadius: 4,
                     ),
@@ -338,10 +338,10 @@ class _AuthScreenState extends State<AuthScreen> with TickerProviderStateMixin {
                       vertical: 10,
                     ),
                     decoration: BoxDecoration(
-                      color: AppColors.red.withOpacity(0.1),
+                      color: AppColors.red.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(
-                        color: AppColors.red.withOpacity(0.3),
+                        color: AppColors.red.withValues(alpha: 0.3),
                       ),
                     ),
                     child: Text(
@@ -457,7 +457,7 @@ class _AuthScreenState extends State<AuthScreen> with TickerProviderStateMixin {
           borderRadius: BorderRadius.circular(16),
           boxShadow: [
             BoxShadow(
-              color: AppColors.accent.withOpacity(0.3),
+              color: AppColors.accent.withValues(alpha: 0.3),
               blurRadius: 20,
               offset: const Offset(0, 6),
             ),

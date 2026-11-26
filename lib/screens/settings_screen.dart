@@ -1,6 +1,6 @@
 import 'dart:io';
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:image_picker/image_picker.dart';
 
@@ -554,7 +554,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             SwitchListTile.adaptive(
               value: _reminderOn,
               onChanged: _loadingReminder ? null : _toggleReminder,
-              activeColor: AppColors.accent,
+              activeThumbColor: AppColors.accent,
               title: const Text(
                 'প্রতিদিনের OT রিমাইন্ডার',
                 style: TextStyle(fontWeight: FontWeight.w700),

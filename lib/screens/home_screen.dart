@@ -1,6 +1,6 @@
 import 'dart:io';
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 
 import '../app_theme.dart';
@@ -264,7 +264,7 @@ class _HomeScreenState extends State<HomeScreen> {
       bottomNavigationBar: NavigationBar(
         height: 68,
         backgroundColor: AppColors.bg2,
-        indicatorColor: AppColors.accent.withOpacity(0.13),
+        indicatorColor: AppColors.accent.withValues(alpha: 0.13),
         selectedIndex: _navIndex,
         onDestinationSelected: (index) {
           setState(() => _navIndex = index);
@@ -304,7 +304,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 width: 34,
                 height: 34,
                 decoration: BoxDecoration(
-                  color: AppColors.accent.withOpacity(0.14),
+                  color: AppColors.accent.withValues(alpha: 0.14),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: const Icon(
@@ -458,7 +458,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     vertical: 4,
                   ),
                   decoration: BoxDecoration(
-                    color: AppColors.accent.withOpacity(0.12),
+                    color: AppColors.accent.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(30),
                   ),
                   child: Text(
@@ -516,7 +516,7 @@ class _HomeScreenState extends State<HomeScreen> {
         color: AppColors.card3,
         borderRadius: BorderRadius.circular(size / 2),
         border: Border.all(
-          color: AppColors.accent.withOpacity(0.5),
+          color: AppColors.accent.withValues(alpha: 0.5),
           width: 2,
         ),
       ),
@@ -623,7 +623,7 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
             borderRadius: BorderRadius.circular(22),
             border: Border.all(
-              color: AppColors.accent.withOpacity(0.24),
+              color: AppColors.accent.withValues(alpha: 0.24),
             ),
           ),
           child: Column(
@@ -815,7 +815,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     color: AppColors.card2,
                     borderRadius: BorderRadius.circular(14),
                     border: Border.all(
-                      color: AppColors.purple.withOpacity(0.28),
+                      color: AppColors.purple.withValues(alpha: 0.28),
                     ),
                   ),
                   child: Column(
@@ -953,9 +953,9 @@ class _HomeScreenState extends State<HomeScreen> {
         borderRadius: BorderRadius.circular(15),
         border: Border.all(
           color: hasOt
-              ? AppColors.accent.withOpacity(0.32)
+              ? AppColors.accent.withValues(alpha: 0.32)
               : isToday
-                  ? AppColors.gold.withOpacity(0.38)
+                  ? AppColors.gold.withValues(alpha: 0.38)
                   : AppColors.border,
         ),
       ),
