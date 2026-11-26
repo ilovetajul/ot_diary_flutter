@@ -29,8 +29,30 @@ jobs:
         run: flutter analyze
       - name: Unit and widget tests
         run: flutter test
-      - name: Build debug APK
-        run: flutter build apk --debug
+      - name: Diagnose Android embedding manifest
+        run: |
+          python3 - <<'PY'
+          import xml.etree.ElementTree as ET
+          path = "android/app/src/main/AndroidManifest.xml"
+          root = ET.parse(path).getroot()
+          ns = "{http://schemas.android.com/apk/res/android}"
+          application = root.find("application")
+          app_name = application.get(ns + "name") if application is not None else None
+          versions = [
+              node.get(ns + "value")
+              for node in root.iter("meta-data")
+              if node.get(ns + "name") == "flutterEmbedding"
+          ]
+          print(f"Manifest: {path}")
+          print(f"application android:name: {app_name}")
+          print(f"flutterEmbedding values: {versions}")
+          if app_name == "io.flutter.app.FlutterApplication" or "1" in versions or "2" not in versions:
+              raise SystemExit("Manifest is still detected as Android v1 embedding.")
+          PY
+          echo "MainActivity:"
+          cat android/app/src/main/kotlin/com/otdiary/app/MainActivity.kt
+      - name: Build debug APK (verbose)
+        run: flutter build apk --debug -v
       - name: Upload debug APK
         uses: actions/upload-artifact@v4
         with:
