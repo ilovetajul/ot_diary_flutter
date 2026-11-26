@@ -15,40 +15,58 @@ jobs:
     steps:
       - name: Checkout feature branch
         uses: actions/checkout@v4
+
       - name: Set up Java 17 for Android Gradle
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '17'
+
       - name: Confirm Java version
         run: java -version
+
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
           flutter-version: '3.50.1'
           channel: stable
           cache: true
+
       - name: Flutter version and selected JDK
         run: |
           flutter --version
           flutter doctor --verbose
+
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
+        with:
+          # Skip the obsolete default "tools" package.
+          packages: ''
+
       - name: Install Android SDK and NDK
         run: |
-          sdkmanager --install "platforms;android-36" "ndk;28.2.13676358"
+          sdkmanager --install "platform-tools" "platforms;android-36" "ndk;28.2.13676358"
+
       - name: Clean and get dependencies
         run: |
           flutter clean
           flutter pub get
+
       - name: Generate Android Launcher Icons
         run: dart run flutter_launcher_icons
+
       - name: Verify launcher icon output
-        run: test -f android/app/src/main/res/mipmap-mdpi/ic_launcher.png
+        run: |
+          test -f android/app/src/main/res/mipmap-mdpi/ic_launcher.png
+          test -f android/app/src/main/res/mipmap-hdpi/ic_launcher.png
+          test -f android/app/src/main/res/mipmap-xhdpi/ic_launcher.png
+
       - name: Analyze
         run: flutter analyze
+
       - name: Unit and widget tests
         run: flutter test
+
       - name: Diagnose Android embedding manifest
         run: |
           python3 - <<'PY'
@@ -71,8 +89,10 @@ jobs:
           PY
           echo "MainActivity:"
           cat android/app/src/main/kotlin/com/otdiary/app/MainActivity.kt
+
       - name: Build debug APK
         run: flutter build apk --debug
+
       - name: Upload Debug APK
         uses: actions/upload-artifact@v4
         with:
