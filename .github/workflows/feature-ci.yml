@@ -32,6 +32,35 @@ jobs:
           channel: stable
           cache: true
 
+      # Flutter's Gradle plugin is an included build. Its own settings file
+      # lacks pluginManagement repositories, so Kotlin DSL dependencies are
+      # being searched only in Gradle Plugin Portal. Add Maven Central there.
+      - name: Add Maven Central to Flutter Gradle plugin repositories
+        shell: bash
+        run: |
+          set -euo pipefail
+          SETTINGS_FILE="$FLUTTER_ROOT/packages/flutter_tools/gradle/settings.gradle.kts"
+          test -f "$SETTINGS_FILE"
+          python3 - "$SETTINGS_FILE" <<'PY'
+          import pathlib
+          import sys
+
+          path = pathlib.Path(sys.argv[1])
+          content = path.read_text(encoding="utf-8")
+
+          if "pluginManagement {" not in content:
+              block = "pluginManagement {\n    repositories {\n        mavenCentral()\n        google()\n        gradlePluginPortal()\n    }\n}\n\n"
+              content = block + content
+              path.write_text(content, encoding="utf-8")
+
+          updated = path.read_text(encoding="utf-8")
+          if "pluginManagement {" not in updated or "mavenCentral()" not in updated:
+              raise SystemExit("Could not configure Maven Central for Flutter's included Gradle build.")
+
+          print(f"Updated Flutter SDK settings: {path}")
+          print("\n".join(updated.splitlines()[:18]))
+          PY
+
       - name: Flutter version and selected JDK
         run: |
           flutter --version
