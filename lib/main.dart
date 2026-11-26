@@ -68,7 +68,7 @@ class OTDiaryApp extends StatelessWidget {
           centerTitle: false,
           surfaceTintColor: Colors.transparent,
         ),
-        cardTheme: CardTheme(
+        cardTheme: CardThemeData(
           color: AppColors.card,
           elevation: 0,
           shape: RoundedRectangleBorder(
