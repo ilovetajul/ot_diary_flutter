@@ -1,182 +1,290 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+
 import '../app_theme.dart';
 import '../models/user_profile.dart';
 import '../services/database_service.dart';
 import '../services/pdf_service.dart';
-import 'settings_screen.dart';
+import '../utils/ot_analytics.dart';
 import 'chart_screen.dart';
+import 'settings_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   final UserProfile profile;
-  const HomeScreen({super.key, required this.profile});
+
+  const HomeScreen({
+    super.key,
+    required this.profile,
+  });
+
   @override
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
 class _HomeScreenState extends State<HomeScreen> {
   late UserProfile _profile;
-  int _currentMonth = DateTime.now().month - 1;
-  int _currentYear  = DateTime.now().year;
-  Map<int, double> _otData = {};
-  bool _saving  = false;
-  bool _loading = false;
-  int  _navIdx  = 0;
 
-  final Map<int, TextEditingController> _controllers = {};
+  int _currentMonth = DateTime.now().month - 1;
+  int _currentYear = DateTime.now().year;
+  int _navIndex = 0;
+
+  Map<int, double> _otData = <int, double>{};
+  final Map<int, TextEditingController> _controllers = <int, TextEditingController>{};
+  final Set<int> _dirtyDays = <int>{};
+
+  String? _photoPath;
+  bool _saving = false;
+  bool _loading = false;
 
   @override
   void initState() {
     super.initState();
     _profile = widget.profile;
-    WidgetsBinding.instance.addPostFrameCallback((_) => _loadData());
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadData();
+      _loadPhotoPath();
+    });
   }
 
   @override
   void dispose() {
-    for (final c in _controllers.values) c.dispose();
+    for (final controller in _controllers.values) {
+      controller.dispose();
+    }
     super.dispose();
   }
 
-  void _clearControllers() {
-    for (final c in _controllers.values) c.dispose();
-    _controllers.clear();
+  Future<void> _loadPhotoPath() async {
+    final path = await DatabaseService.getLocalProfilePhotoPath();
+    if (!mounted) return;
+    setState(() => _photoPath = path);
   }
 
-  // ─── Refresh বাটনে OT না কমার fix ───
+  void _clearControllers() {
+    for (final controller in _controllers.values) {
+      controller.dispose();
+    }
+    _controllers.clear();
+    _dirtyDays.clear();
+  }
+
   Future<void> _loadData() async {
     if (!mounted) return;
     setState(() => _loading = true);
-    // data আসার আগে _otData clear করবেন না
 
     final data = await DatabaseService.getMonthData(
-        _currentYear, _currentMonth + 1);
+      _currentYear,
+      _currentMonth + 1,
+    );
 
     if (!mounted) return;
     _clearControllers();
     setState(() {
-      _otData  = data;
+      _otData = data;
       _loading = false;
     });
     _initControllers();
   }
 
   void _initControllers() {
-    final days = DateTime(_currentYear, _currentMonth + 2, 0).day;
-    for (int d = 1; d <= days; d++) {
-      final hours = _otData[d] ?? 0.0;
-      _controllers[d] = TextEditingController(
-        text: hours > 0 ? '$hours' : '',
+    final days = _daysInMonth;
+    for (var day = 1; day <= days; day++) {
+      final hours = _otData[day] ?? 0;
+      _controllers[day] = TextEditingController(
+        text: hours > 0 ? OtAnalytics.formatHours(hours) : '',
       );
     }
-    if (mounted) setState(() {});
   }
 
-  void _changeMonth(int dir) {
+  int get _daysInMonth =>
+      DateTime(_currentYear, _currentMonth + 2, 0).day;
+
+  double get _totalHours =>
+      _otData.values.fold(0.0, (sum, value) => sum + value);
+
+  double get _otEarning => _totalHours * _profile.rate;
+
+  double get _totalSalary =>
+      _profile.basic + _profile.allowance + _otEarning;
+
+  int get _otDays => _otData.values.where((hours) => hours > 0).length;
+
+  void _changeMonth(int direction) {
     _clearControllers();
     setState(() {
-      _currentMonth += dir;
-      if (_currentMonth > 11) { _currentMonth = 0; _currentYear++; }
-      if (_currentMonth < 0)  { _currentMonth = 11; _currentYear--; }
-      _otData = {};
+      _currentMonth += direction;
+      if (_currentMonth > 11) {
+        _currentMonth = 0;
+        _currentYear++;
+      } else if (_currentMonth < 0) {
+        _currentMonth = 11;
+        _currentYear--;
+      }
+      _otData = <int, double>{};
     });
     _loadData();
   }
 
-  int    get _daysInMonth => DateTime(_currentYear, _currentMonth + 2, 0).day;
-  double get _totalHours  => _otData.values.fold(0, (a, b) => a + b);
-  double get _otEarning   => _totalHours * _profile.rate;
-  double get _totalSalary => _profile.basic + _profile.allowance + _otEarning;
-
   Future<void> _saveDay(int day, double hours) async {
+    if (!mounted) return;
+
     setState(() {
       _saving = true;
-      if (hours <= 0) _otData.remove(day); else _otData[day] = hours;
+      if (hours <= 0) {
+        _otData.remove(day);
+      } else {
+        _otData[day] = hours;
+      }
     });
-    await DatabaseService.saveOTDay(
-        _currentYear, _currentMonth + 1, day, hours);
-    if (mounted) setState(() => _saving = false);
-    _showToast('☁️ সেভ হয়েছে!');
+
+    try {
+      // DatabaseService writes to the device first and queues cloud sync.
+      await DatabaseService.saveOTDay(
+        _currentYear,
+        _currentMonth + 1,
+        day,
+        hours,
+      );
+      if (!mounted) return;
+      setState(() => _saving = false);
+      _showToast(
+        DatabaseService.isOnline
+            ? 'OT সেভ হয়েছে'
+            : 'ডিভাইসে সেভ হয়েছে — অনলাইন হলে Firebase-এ Sync হবে',
+      );
+    } catch (error) {
+      if (!mounted) return;
+      setState(() => _saving = false);
+      _showToast('লোকাল সেভে সমস্যা হয়েছে: $error', error: true);
+    }
   }
 
-  void _showToast(String msg) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-      content: Text(msg, style: const TextStyle(fontWeight: FontWeight.w600)),
-      backgroundColor: AppColors.card2,
-      behavior: SnackBarBehavior.floating,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(100)),
-      margin: const EdgeInsets.fromLTRB(16, 0, 16, 20),
-      duration: const Duration(seconds: 2),
-    ));
+  void _commitDay(int day) {
+    if (!_dirtyDays.remove(day)) return;
+    final controller = _controllers[day];
+    final value = double.tryParse(controller?.text.trim() ?? '') ?? 0;
+    _saveDay(day, value);
+    FocusScope.of(context).unfocus();
+  }
+
+  void _showToast(String message, {bool error = false}) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: error ? AppColors.red : AppColors.card3,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
+        margin: const EdgeInsets.fromLTRB(14, 0, 14, 16),
+        duration: const Duration(seconds: 3),
+      ),
+    );
   }
 
   Future<void> _generatePDF() async {
     try {
-      _showToast('📄 PDF তৈরি হচ্ছে...');
+      _showToast('PDF তৈরি হচ্ছে...');
       final file = await PdfService.generateMonthlyReport(
-        profile: _profile, otData: _otData,
-        month: _currentMonth, year: _currentYear,
+        profile: _profile,
+        otData: _otData,
+        month: _currentMonth,
+        year: _currentYear,
       );
       await PdfService.sharePdf(file);
-    } catch (e) {
-      _showToast('❌ PDF তৈরিতে সমস্যা: $e');
+    } catch (error) {
+      _showToast('PDF তৈরি করা যায়নি: $error', error: true);
     }
   }
 
   Future<void> _resetMonth() async {
-    final confirm = await showDialog<bool>(
+    final confirmed = await showDialog<bool>(
       context: context,
-      builder: (_) => AlertDialog(
+      builder: (dialogContext) => AlertDialog(
         backgroundColor: AppColors.card,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text('রিসেট করবেন?', style: TextStyle(color: AppColors.text)),
-        content: const Text('এই মাসের সব OT ডেটা মুছে যাবে।',
-            style: TextStyle(color: AppColors.text2)),
+        title: const Text('এই মাসের OT মুছবেন?'),
+        content: const Text(
+          'শুধু নিশ্চিত করলে এই মাসের OT এন্ট্রি মুছে যাবে। '
+          'অন্য মাসের তথ্য পরিবর্তন হবে না।',
+        ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false),
-              child: const Text('না', style: TextStyle(color: AppColors.muted))),
-          TextButton(onPressed: () => Navigator.pop(context, true),
-              child: const Text('হ্যাঁ, মুছুন', style: TextStyle(color: AppColors.red))),
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('বাতিল'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: AppColors.red,
+              foregroundColor: Colors.white,
+            ),
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('মুছে ফেলুন'),
+          ),
         ],
       ),
     );
-    if (confirm == true) {
-      await DatabaseService.resetMonth(_currentYear, _currentMonth + 1);
-      _clearControllers();
-      setState(() => _otData = {});
-      _initControllers();
-      _showToast('🗑 রিসেট হয়েছে');
-    }
+
+    if (confirmed != true) return;
+
+    await DatabaseService.resetMonth(_currentYear, _currentMonth + 1);
+    _clearControllers();
+    if (!mounted) return;
+    setState(() => _otData = <int, double>{});
+    _initControllers();
+    _showToast('এই মাসের OT রিসেট হয়েছে');
   }
 
   @override
   Widget build(BuildContext context) {
-    final pages = [_buildHome(), _buildChart(), _buildSettings()];
+    final pages = <Widget>[
+      _buildHome(),
+      ChartScreen(
+        otData: _otData,
+        profile: _profile,
+        month: _currentMonth,
+        year: _currentYear,
+      ),
+      SettingsScreen(
+        profile: _profile,
+        onProfileUpdated: (profile) {
+          setState(() => _profile = profile);
+          _loadPhotoPath();
+        },
+      ),
+    ];
+
     return Scaffold(
       backgroundColor: AppColors.bg,
-      body: pages[_navIdx],
-      bottomNavigationBar: _buildNavBar(),
-    );
-  }
-
-  Widget _buildNavBar() {
-    return Container(
-      decoration: BoxDecoration(
-        color: AppColors.bg2,
-        border: const Border(top: BorderSide(color: AppColors.border)),
+      body: IndexedStack(
+        index: _navIndex,
+        children: pages,
       ),
-      child: BottomNavigationBar(
-        currentIndex: _navIdx,
-        onTap: (i) => setState(() => _navIdx = i),
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        selectedItemColor: AppColors.accent,
-        unselectedItemColor: AppColors.muted,
-        selectedLabelStyle: const TextStyle(fontWeight: FontWeight.w700, fontSize: 11),
-        items: const [
-          BottomNavigationBarItem(icon: Text('🏠', style: TextStyle(fontSize: 22)), label: 'হোম'),
-          BottomNavigationBarItem(icon: Text('📊', style: TextStyle(fontSize: 22)), label: 'চার্ট'),
-          BottomNavigationBarItem(icon: Text('⚙️', style: TextStyle(fontSize: 22)), label: 'সেটিংস'),
+      bottomNavigationBar: NavigationBar(
+        height: 68,
+        backgroundColor: AppColors.bg2,
+        indicatorColor: AppColors.accent.withOpacity(0.13),
+        selectedIndex: _navIndex,
+        onDestinationSelected: (index) {
+          setState(() => _navIndex = index);
+        },
+        destinations: const [
+          NavigationDestination(
+            icon: Icon(Icons.space_dashboard_outlined),
+            selectedIcon: Icon(Icons.space_dashboard_rounded),
+            label: 'হোম',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.bar_chart_outlined),
+            selectedIcon: Icon(Icons.bar_chart_rounded),
+            label: 'রিপোর্ট',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.settings_outlined),
+            selectedIcon: Icon(Icons.settings_rounded),
+            label: 'সেটিংস',
+          ),
         ],
       ),
     );
@@ -184,87 +292,120 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _buildHome() {
     return CustomScrollView(
+      keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
       slivers: [
         SliverAppBar(
           pinned: true,
-          backgroundColor: AppColors.bg.withOpacity(0.95),
-          title: Row(children: [
-            Container(
-              width: 34, height: 34,
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(colors: [AppColors.accent, Color(0xFF0097A7)]),
-                borderRadius: BorderRadius.circular(11),
+          backgroundColor: AppColors.bg,
+          titleSpacing: 18,
+          title: Row(
+            children: [
+              Container(
+                width: 34,
+                height: 34,
+                decoration: BoxDecoration(
+                  color: AppColors.accent.withOpacity(0.14),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(
+                  Icons.bolt_rounded,
+                  color: AppColors.accent,
+                  size: 22,
+                ),
               ),
-              child: const Center(child: Text('⚡', style: TextStyle(fontSize: 18))),
-            ),
-            const SizedBox(width: 10),
-            ShaderMask(
-              shaderCallback: (b) => const LinearGradient(
-                  colors: [AppColors.accent, AppColors.gold]).createShader(b),
-              child: const Text('OT DIARY',
-                  style: TextStyle(fontSize: 17, fontWeight: FontWeight.w900,
-                      letterSpacing: 3, color: Colors.white)),
-            ),
-          ]),
+              const SizedBox(width: 10),
+              const Text(
+                'OT Diary',
+                style: TextStyle(
+                  fontSize: 19,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 0.2,
+                ),
+              ),
+            ],
+          ),
           actions: [
             if (_saving || _loading)
-              Padding(
-                padding: const EdgeInsets.only(right: 8),
-                child: SizedBox(width: 18, height: 18,
+              const Padding(
+                padding: EdgeInsets.only(right: 8),
+                child: Center(
+                  child: SizedBox(
+                    width: 18,
+                    height: 18,
                     child: CircularProgressIndicator(
-                        strokeWidth: 2, color: AppColors.gold.withOpacity(0.8))),
-              ),
-            IconButton(
-              icon: const Text('📄', style: TextStyle(fontSize: 20)),
-              onPressed: _generatePDF,
-            ),
-            IconButton(
-              icon: const Text('🔄', style: TextStyle(fontSize: 18)),
-              onPressed: _loadData,
-            ),
-          ],
-        ),
-
-        SliverPadding(
-          padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-          sliver: SliverList(
-            delegate: SliverChildListDelegate([
-              _profileHero(),
-              const SizedBox(height: 14),
-              _monthSelector(),
-              const SizedBox(height: 14),
-              _summaryCards(),
-              const SizedBox(height: 14),
-              _progressCard(),
-              const SizedBox(height: 14),
-              Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                const Text('📅 দৈনিক OT এন্ট্রি',
-                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700,
-                        color: AppColors.text2, letterSpacing: 0.5)),
-                TextButton.icon(
-                  onPressed: _resetMonth,
-                  icon: const Text('🗑', style: TextStyle(fontSize: 13)),
-                  label: const Text('রিসেট',
-                      style: TextStyle(color: AppColors.red, fontSize: 12)),
-                  style: TextButton.styleFrom(
-                    backgroundColor: AppColors.red.withOpacity(0.08),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      strokeWidth: 2,
+                      color: AppColors.accent,
+                    ),
                   ),
                 ),
-              ]),
-              const SizedBox(height: 10),
-
-              if (_loading)
-                const Center(child: Padding(
-                  padding: EdgeInsets.all(20),
-                  child: CircularProgressIndicator(color: AppColors.accent),
-                ))
-              else
-                ...List.generate(_daysInMonth, (i) => _dayRow(i + 1)),
-
-              const SizedBox(height: 20),
-            ]),
+              ),
+            IconButton(
+              tooltip: 'মাসিক PDF',
+              onPressed: _generatePDF,
+              icon: const Icon(Icons.picture_as_pdf_outlined),
+            ),
+            IconButton(
+              tooltip: 'রিফ্রেশ',
+              onPressed: _loadData,
+              icon: const Icon(Icons.refresh_rounded),
+            ),
+            const SizedBox(width: 4),
+          ],
+        ),
+        SliverPadding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+          sliver: SliverList(
+            delegate: SliverChildListDelegate(
+              [
+                _profileHero(),
+                const SizedBox(height: 16),
+                _monthSelector(),
+                const SizedBox(height: 16),
+                _summaryCards(),
+                const SizedBox(height: 16),
+                _distributionCard(),
+                const SizedBox(height: 16),
+                _progressCard(),
+                const SizedBox(height: 22),
+                Row(
+                  children: [
+                    const Expanded(
+                      child: Text(
+                        'দৈনিক OT এন্ট্রি',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ),
+                    TextButton.icon(
+                      onPressed: _resetMonth,
+                      icon: const Icon(Icons.delete_outline, size: 17),
+                      label: const Text('মাস রিসেট'),
+                      style: TextButton.styleFrom(
+                        foregroundColor: AppColors.red,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 6),
+                _entryLegend(),
+                const SizedBox(height: 10),
+                if (_loading)
+                  const Padding(
+                    padding: EdgeInsets.all(28),
+                    child: Center(
+                      child: CircularProgressIndicator(
+                        color: AppColors.accent,
+                      ),
+                    ),
+                  )
+                else
+                  ...List.generate(_daysInMonth, (index) => _dayRow(index + 1)),
+                const SizedBox(height: 18),
+                _syncInfoCard(),
+              ],
+            ),
           ),
         ),
       ],
@@ -273,314 +414,704 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _profileHero() {
     return Container(
+      padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
-          colors: [AppColors.card, AppColors.card2],
-          begin: Alignment.topLeft, end: Alignment.bottomRight,
+          colors: [Color(0xFF15334A), Color(0xFF102338)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
         ),
-        borderRadius: BorderRadius.circular(22),
+        borderRadius: BorderRadius.circular(24),
         border: Border.all(color: AppColors.border),
       ),
-      child: Stack(children: [
-        Positioned(top: 0, left: 0, right: 0,
-          child: Container(height: 2,
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(colors: [AppColors.accent, AppColors.gold]),
-              borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
-            ))),
-        Padding(
-          padding: const EdgeInsets.all(18),
-          child: Row(children: [
-            Container(width: 58, height: 58,
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(colors: [AppColors.accent, Color(0xFF0097A7)]),
-                borderRadius: BorderRadius.circular(18),
-                boxShadow: [BoxShadow(color: AppColors.accent.withOpacity(0.3), blurRadius: 15)],
-              ),
-              child: Center(child: Text(
-                _profile.name.isNotEmpty ? _profile.name[0].toUpperCase() : '?',
-                style: const TextStyle(fontSize: 26, fontWeight: FontWeight.w900, color: Colors.black),
-              ))),
-            const SizedBox(width: 14),
-            Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(_profile.name, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700)),
-              const SizedBox(height: 6),
-              Wrap(spacing: 6, children: [
-                _tag('ID: ${_profile.idNo.isNotEmpty ? _profile.idNo : "—"}'),
-                _tag('${_profile.rate}/ঘন্টা', accent: true),
-              ]),
-            ])),
-          ]),
-        ),
-      ]),
+      child: Row(
+        children: [
+          _avatar(58),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'স্বাগতম, ${_profile.name.isEmpty ? 'ব্যবহারকারী' : _profile.name}',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 5),
+                Text(
+                  _profile.idNo.isEmpty
+                      ? 'আপনার OT হিসাব এখানে রাখুন'
+                      : 'আইডি: ${_profile.idNo}',
+                  style: const TextStyle(
+                    color: AppColors.text2,
+                    fontSize: 12,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    color: AppColors.accent.withOpacity(0.12),
+                    borderRadius: BorderRadius.circular(30),
+                  ),
+                  child: Text(
+                    'OT Rate: ৳${OtAnalytics.formatHours(_profile.rate)}/ঘণ্টা',
+                    style: const TextStyle(
+                      color: AppColors.accent,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const Icon(
+            Icons.verified_user_outlined,
+            color: AppColors.accent,
+            size: 21,
+          ),
+        ],
+      ),
     );
   }
 
-  Widget _tag(String text, {bool accent = false}) {
+  Widget _avatar(double size) {
+    final path = _photoPath;
+    final hasLocalPhoto =
+        path != null && File(path).existsSync();
+
+    Widget image;
+    if (hasLocalPhoto) {
+      image = Image.file(
+        File(path),
+        width: size,
+        height: size,
+        fit: BoxFit.cover,
+      );
+    } else if ((_profile.photoUrl ?? '').isNotEmpty) {
+      image = Image.network(
+        _profile.photoUrl!,
+        width: size,
+        height: size,
+        fit: BoxFit.cover,
+        errorBuilder: (_, __, ___) => _avatarFallback(size),
+      );
+    } else {
+      image = _avatarFallback(size);
+    }
+
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+      width: size,
+      height: size,
+      clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
-        color: AppColors.card3, borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: AppColors.border),
+        color: AppColors.card3,
+        borderRadius: BorderRadius.circular(size / 2),
+        border: Border.all(
+          color: AppColors.accent.withOpacity(0.5),
+          width: 2,
+        ),
       ),
-      child: Text(text, style: TextStyle(
-          fontSize: 11,
-          color: accent ? AppColors.accent : AppColors.text2,
-          fontWeight: accent ? FontWeight.w700 : FontWeight.normal)),
+      child: image,
+    );
+  }
+
+  Widget _avatarFallback(double size) {
+    return Container(
+      width: size,
+      height: size,
+      color: AppColors.card3,
+      alignment: Alignment.center,
+      child: Text(
+        _profile.name.isEmpty ? '?' : _profile.name.substring(0, 1),
+        style: TextStyle(
+          color: AppColors.accent,
+          fontSize: size * 0.42,
+          fontWeight: FontWeight.w800,
+        ),
+      ),
     );
   }
 
   Widget _monthSelector() {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
-        color: AppColors.card, borderRadius: BorderRadius.circular(18),
+        color: AppColors.card,
+        borderRadius: BorderRadius.circular(18),
         border: Border.all(color: AppColors.border),
       ),
-      child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-        _navBtn('‹', () => _changeMonth(-1)),
-        Column(children: [
-          Text(AppStrings.months[_currentMonth],
-              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700,
-                  color: AppColors.accent, letterSpacing: 1)),
-          Text('$_currentYear সাল',
-              style: TextStyle(fontSize: 11, color: AppColors.muted)),
-        ]),
-        _navBtn('›', () => _changeMonth(1)),
-      ]),
-    );
-  }
-
-  Widget _navBtn(String label, VoidCallback onTap) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(width: 40, height: 40,
-        decoration: BoxDecoration(
-          color: AppColors.card2, borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: AppColors.border),
-        ),
-        child: Center(child: Text(label,
-            style: const TextStyle(fontSize: 22, color: AppColors.text)))),
+      child: Row(
+        children: [
+          IconButton(
+            onPressed: () => _changeMonth(-1),
+            icon: const Icon(Icons.chevron_left_rounded),
+            color: AppColors.text2,
+          ),
+          Expanded(
+            child: Column(
+              children: [
+                Text(
+                  AppStrings.months[_currentMonth],
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w800,
+                    color: AppColors.accent,
+                  ),
+                ),
+                Text(
+                  '$_currentYear',
+                  style: const TextStyle(
+                    color: AppColors.muted,
+                    fontSize: 12,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          IconButton(
+            onPressed: () => _changeMonth(1),
+            icon: const Icon(Icons.chevron_right_rounded),
+            color: AppColors.text2,
+          ),
+        ],
+      ),
     );
   }
 
   Widget _summaryCards() {
-    return Column(children: [
-      Row(children: [
-        Expanded(child: _sCard('মোট OT', '${_totalHours}h', AppColors.accent)),
-        const SizedBox(width: 12),
-        Expanded(child: _sCard('OT আয়', '৳${_otEarning.toStringAsFixed(0)}', AppColors.orange)),
-      ]),
-      const SizedBox(height: 12),
-      Container(
-        padding: const EdgeInsets.all(18),
-        decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            colors: [Color(0xFF0B1E35), Color(0xFF0D2237)],
-            begin: Alignment.topLeft, end: Alignment.bottomRight,
-          ),
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: AppColors.accent.withOpacity(0.2)),
-        ),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text('💰 মোট বেতন', style: TextStyle(fontSize: 10, color: AppColors.muted,
-              fontWeight: FontWeight.w700, letterSpacing: 1)),
-          const SizedBox(height: 8),
-          Text(_profile.rate > 0 ? '৳${_totalSalary.toStringAsFixed(0)}' : '৳ —',
-              style: const TextStyle(fontSize: 30, fontWeight: FontWeight.w900,
-                  color: AppColors.gold, letterSpacing: 1)),
-          const SizedBox(height: 12),
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: Colors.black26, borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: AppColors.border),
+    return Column(
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: _statCard(
+                title: 'মোট OT',
+                value: '${OtAnalytics.formatHours(_totalHours)} ঘণ্টা',
+                icon: Icons.schedule_rounded,
+                color: AppColors.accent,
+              ),
             ),
-            child: Row(children: [
-              _bItem('মূল বেতন', _profile.basic > 0 ? '৳${_profile.basic.toStringAsFixed(0)}' : '—'),
-              _divider(),
-              _bItem('ভাতা', _profile.allowance > 0 ? '৳${_profile.allowance.toStringAsFixed(0)}' : '—'),
-              _divider(),
-              _bItem('OT', _otEarning > 0 ? '৳${_otEarning.toStringAsFixed(0)}' : '—', accent: true),
-            ]),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _statCard(
+                title: 'OT করেছেন',
+                value: '$_otDays দিন',
+                icon: Icons.event_available_rounded,
+                color: AppColors.purple,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(18),
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              colors: [Color(0xFF193D42), Color(0xFF153044)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            borderRadius: BorderRadius.circular(22),
+            border: Border.all(
+              color: AppColors.accent.withOpacity(0.24),
+            ),
           ),
-        ]),
-      ),
-    ]);
-  }
-
-  Widget _sCard(String label, String value, Color color) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: AppColors.card, borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: AppColors.border),
-      ),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text(label, style: TextStyle(fontSize: 10, color: AppColors.muted,
-            fontWeight: FontWeight.w700, letterSpacing: 0.8)),
-        const SizedBox(height: 8),
-        Text(value, style: TextStyle(fontSize: 26, fontWeight: FontWeight.w800, color: color)),
-        Text('এই মাসে', style: TextStyle(fontSize: 10, color: AppColors.muted)),
-      ]),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Row(
+                children: [
+                  Icon(
+                    Icons.account_balance_wallet_outlined,
+                    color: AppColors.accent,
+                    size: 18,
+                  ),
+                  SizedBox(width: 8),
+                  Text(
+                    'এই মাসের আনুমানিক OT আয়',
+                    style: TextStyle(
+                      color: AppColors.text2,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Text(
+                '৳${_otEarning.toStringAsFixed(0)}',
+                style: const TextStyle(
+                  color: AppColors.accent,
+                  fontSize: 30,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  _salaryMini('মূল বেতন', _profile.basic),
+                  _verticalDivider(),
+                  _salaryMini('ভাতা', _profile.allowance),
+                  _verticalDivider(),
+                  _salaryMini('মোট বেতন', _totalSalary),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 
-  Widget _bItem(String label, String value, {bool accent = false}) {
-    return Expanded(child: Column(children: [
-      Text(label, style: TextStyle(fontSize: 9, color: AppColors.muted, fontWeight: FontWeight.w600)),
-      const SizedBox(height: 4),
-      Text(value, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700,
-          color: accent ? AppColors.accent : AppColors.text)),
-    ]));
-  }
-
-  Widget _divider() => Container(width: 1, height: 28, color: AppColors.border);
-
-  Widget _progressCard() {
-    final pct = (_totalHours / 120).clamp(0.0, 1.0);
+  Widget _statCard({
+    required String title,
+    required String value,
+    required IconData icon,
+    required Color color,
+  }) {
     return Container(
-      padding: const EdgeInsets.all(18),
+      padding: const EdgeInsets.all(15),
       decoration: BoxDecoration(
-        color: AppColors.card, borderRadius: BorderRadius.circular(18),
+        color: AppColors.card,
+        borderRadius: BorderRadius.circular(19),
         border: Border.all(color: AppColors.border),
       ),
-      child: Column(children: [
-        Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-          Text('মাসিক OT লক্ষ্য (১২০ ঘন্টা)',
-              style: TextStyle(fontSize: 12, color: AppColors.text2, fontWeight: FontWeight.w600)),
-          Text('${_totalHours}h / ১২০',
-              style: const TextStyle(fontSize: 12, color: AppColors.accent, fontWeight: FontWeight.w700)),
-        ]),
-        const SizedBox(height: 10),
-        ClipRRect(
-          borderRadius: BorderRadius.circular(100),
-          child: TweenAnimationBuilder<double>(
-            duration: const Duration(milliseconds: 600),
-            curve: Curves.easeOutCubic,
-            tween: Tween(begin: 0, end: pct),
-            builder: (_, val, __) => LinearProgressIndicator(
-              value: val, minHeight: 10,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, color: color, size: 20),
+          const SizedBox(height: 10),
+          Text(
+            title,
+            style: const TextStyle(
+              color: AppColors.muted,
+              fontSize: 11,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            value,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              color: color,
+              fontSize: 19,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _salaryMini(String label, double value) {
+    return Expanded(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: const TextStyle(
+              color: AppColors.muted,
+              fontSize: 10,
+            ),
+          ),
+          const SizedBox(height: 3),
+          Text(
+            '৳${value.toStringAsFixed(0)}',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              color: AppColors.text,
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _verticalDivider() {
+    return Container(
+      width: 1,
+      height: 30,
+      margin: const EdgeInsets.symmetric(horizontal: 8),
+      color: AppColors.border,
+    );
+  }
+
+  Widget _distributionCard() {
+    final groups = OtAnalytics.groupByHours(_otData);
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(17),
+      decoration: BoxDecoration(
+        color: AppColors.card,
+        borderRadius: BorderRadius.circular(21),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Row(
+            children: [
+              Icon(
+                Icons.stacked_bar_chart_rounded,
+                color: AppColors.purple,
+                size: 20,
+              ),
+              SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'কত ঘণ্টা OT কত দিন করেছেন',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 5),
+          const Text(
+            'একই পরিমাণ OT যেদিন করেছেন, সেগুলো একসঙ্গে দেখানো হচ্ছে।',
+            style: TextStyle(
+              color: AppColors.muted,
+              fontSize: 11,
+            ),
+          ),
+          const SizedBox(height: 14),
+          if (groups.isEmpty)
+            const Text(
+              'এই মাসে এখনো OT এন্ট্রি নেই।',
+              style: TextStyle(
+                color: AppColors.text2,
+                fontSize: 12,
+              ),
+            )
+          else
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: groups.map((group) {
+                return Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 9,
+                  ),
+                  decoration: BoxDecoration(
+                    color: AppColors.card2,
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(
+                      color: AppColors.purple.withOpacity(0.28),
+                    ),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '${OtAnalytics.formatHours(group.hours)} ঘণ্টা',
+                        style: const TextStyle(
+                          color: AppColors.purple,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      Text(
+                        '${group.days} দিন',
+                        style: const TextStyle(
+                          color: AppColors.text2,
+                          fontSize: 11,
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }).toList(),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _progressCard() {
+    const targetHours = 120.0;
+    final progress = (_totalHours / targetHours).clamp(0.0, 1.0);
+
+    return Container(
+      padding: const EdgeInsets.all(17),
+      decoration: BoxDecoration(
+        color: AppColors.card,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Expanded(
+                child: Text(
+                  'মাসিক OT অগ্রগতি',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 13,
+                  ),
+                ),
+              ),
+              Text(
+                '${OtAnalytics.formatHours(_totalHours)} / 120 ঘণ্টা',
+                style: const TextStyle(
+                  color: AppColors.accent,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 11),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(20),
+            child: LinearProgressIndicator(
+              value: progress,
+              minHeight: 9,
               backgroundColor: AppColors.card2,
               valueColor: const AlwaysStoppedAnimation(AppColors.accent),
             ),
           ),
+        ],
+      ),
+    );
+  }
+
+  Widget _entryLegend() {
+    return Row(
+      children: const [
+        Expanded(
+          child: Text(
+            'তারিখ ও বার',
+            style: TextStyle(color: AppColors.muted, fontSize: 11),
+          ),
         ),
-      ]),
+        Text(
+          'OT ঘণ্টা',
+          style: TextStyle(color: AppColors.muted, fontSize: 11),
+        ),
+        SizedBox(width: 43),
+        Text(
+          'মোট',
+          style: TextStyle(color: AppColors.muted, fontSize: 11),
+        ),
+      ],
     );
   }
 
   Widget _dayRow(int day) {
-    final dow    = DateTime(_currentYear, _currentMonth + 1, day).weekday % 7;
-    final isFri  = dow == 5;
-    final isSat  = dow == 6;
-    final hours  = _otData[day] ?? 0.0;
-    final hasOT  = hours > 0;
-    final today  = DateTime.now();
-    final isToday = day == today.day &&
-        _currentMonth == today.month - 1 &&
-        _currentYear  == today.year;
+    final weekday = DateTime(
+      _currentYear,
+      _currentMonth + 1,
+      day,
+    ).weekday % 7;
 
-    if (!_controllers.containsKey(day)) {
-      _controllers[day] = TextEditingController(text: hours > 0 ? '$hours' : '');
-    }
-    final ctrl = _controllers[day]!;
+    final hours = _otData[day] ?? 0;
+    final hasOt = hours > 0;
+    final now = DateTime.now();
+    final isToday = day == now.day &&
+        _currentMonth == now.month - 1 &&
+        _currentYear == now.year;
+
+    final controller = _controllers.putIfAbsent(
+      day,
+      () => TextEditingController(
+        text: hasOt ? OtAnalytics.formatHours(hours) : '',
+      ),
+    );
+
+    final dayColor = weekday == 5
+        ? const Color(0xFF7CB7FF)
+        : weekday == 6
+            ? AppColors.orange
+            : AppColors.text2;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
       decoration: BoxDecoration(
-        color: hasOT ? const Color(0xFF0C1F2E) : AppColors.card,
-        borderRadius: BorderRadius.circular(16),
+        color: hasOt ? const Color(0xFF102C35) : AppColors.card,
+        borderRadius: BorderRadius.circular(15),
         border: Border.all(
-          color: hasOT ? AppColors.accent.withOpacity(0.3)
-              : isToday ? AppColors.gold.withOpacity(0.3)
-              : AppColors.border,
+          color: hasOt
+              ? AppColors.accent.withOpacity(0.32)
+              : isToday
+                  ? AppColors.gold.withOpacity(0.38)
+                  : AppColors.border,
         ),
       ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-        child: Row(children: [
-          SizedBox(width: 36,
-            child: Text(day.toString().padLeft(2, '0'),
-                style: TextStyle(fontFamily: 'monospace', fontSize: 14,
-                    fontWeight: FontWeight.w700,
-                    color: hasOT ? AppColors.accent : AppColors.text2))),
-          Expanded(child: Text(
-            AppStrings.days[dow] + (isToday ? ' ●' : ''),
-            style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500,
-                color: isFri ? Colors.blue[300] : isSat ? AppColors.orange : AppColors.muted),
-          )),
+      child: Row(
+        children: [
           SizedBox(
-            width: 76,
+            width: 31,
+            child: Text(
+              day.toString().padLeft(2, '0'),
+              style: TextStyle(
+                fontWeight: FontWeight.w800,
+                color: hasOt ? AppColors.accent : AppColors.text2,
+                fontSize: 13,
+              ),
+            ),
+          ),
+          Expanded(
+            child: Row(
+              children: [
+                Text(
+                  AppStrings.days[weekday],
+                  style: TextStyle(
+                    color: dayColor,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                if (isToday) ...[
+                  const SizedBox(width: 5),
+                  const Icon(
+                    Icons.circle,
+                    color: AppColors.gold,
+                    size: 6,
+                  ),
+                ],
+              ],
+            ),
+          ),
+          SizedBox(
+            width: 82,
             child: TextField(
-              controller: ctrl,
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
-              inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*'))],
+              controller: controller,
+              keyboardType: const TextInputType.numberWithOptions(
+                decimal: true,
+              ),
+              inputFormatters: [
+                FilteringTextInputFormatter.allow(
+                  RegExp(r'^\d*\.?\d{0,2}$'),
+                ),
+              ],
               textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800,
-                  fontFamily: 'monospace',
-                  color: hasOT ? AppColors.accent : AppColors.text),
+              style: TextStyle(
+                color: hasOt ? AppColors.accent : AppColors.text,
+                fontSize: 14,
+                fontWeight: FontWeight.w800,
+              ),
               decoration: InputDecoration(
                 hintText: '০',
-                hintStyle: TextStyle(color: AppColors.muted, fontSize: 14),
-                filled: true, fillColor: AppColors.card2,
-                contentPadding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10),
-                    borderSide: BorderSide(color: hasOT ? AppColors.accent.withOpacity(0.4) : AppColors.border)),
-                enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10),
-                    borderSide: BorderSide(color: hasOT ? AppColors.accent.withOpacity(0.4) : AppColors.border)),
-                focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10),
-                    borderSide: const BorderSide(color: AppColors.accent, width: 1.5)),
+                suffixText: 'h',
+                suffixStyle: const TextStyle(
+                  color: AppColors.muted,
+                  fontSize: 11,
+                ),
+                filled: true,
+                fillColor: AppColors.card2,
+                isDense: true,
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 8,
+                  vertical: 10,
+                ),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(11),
+                  borderSide: BorderSide.none,
+                ),
               ),
-              // ─── onChanged: শুধু একবার ───
-              onChanged: (v) {
-                final val = double.tryParse(v) ?? 0;
+              onChanged: (value) {
+                _dirtyDays.add(day);
+                final parsed = double.tryParse(value.trim()) ?? 0;
                 setState(() {
-                  if (val <= 0) _otData.remove(day);
-                  else _otData[day] = val;
+                  if (parsed <= 0) {
+                    _otData.remove(day);
+                  } else {
+                    _otData[day] = parsed;
+                  }
                 });
               },
-              // ─── keyboard এর ✓ চাপলে save ───
-              onEditingComplete: () {
-                final val = _otData[day] ?? 0;
-                _saveDay(day, val);
-                FocusScope.of(context).unfocus();
-              },
-              // ─── অন্য জায়গায় ট্যাপ করলেও save ───
-              onTapOutside: (_) {
-                final val = _otData[day] ?? 0;
-                if (val > 0) _saveDay(day, val);
-                FocusScope.of(context).unfocus();
-              },
+              onEditingComplete: () => _commitDay(day),
+              // Emptying a previously saved value also queues a cloud delete.
+              onTapOutside: (_) => _commitDay(day),
             ),
           ),
           const SizedBox(width: 10),
-          SizedBox(width: 34,
+          SizedBox(
+            width: 35,
             child: Text(
-              _cumulative(day) > 0 ? '${_cumulative(day)}' : '—',
-              style: TextStyle(fontFamily: 'monospace', fontSize: 11, fontWeight: FontWeight.w700,
-                  color: _cumulative(day) == 0 ? AppColors.muted
-                      : _cumulative(day) < 20 ? AppColors.text2
-                      : _cumulative(day) < 50 ? AppColors.gold
-                      : AppColors.orange),
-              textAlign: TextAlign.right,
-            )),
-        ]),
+              _cumulative(day) > 0
+                  ? OtAnalytics.formatHours(_cumulative(day))
+                  : '—',
+              textAlign: TextAlign.end,
+              style: const TextStyle(
+                color: AppColors.text2,
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
 
   double _cumulative(int day) {
-    double sum = 0;
-    for (int d = 1; d <= day; d++) sum += _otData[d] ?? 0;
-    return sum;
+    var total = 0.0;
+    for (var index = 1; index <= day; index++) {
+      total += _otData[index] ?? 0;
+    }
+    return total;
   }
 
-  Widget _buildChart() => ChartScreen(
-      otData: _otData, profile: _profile,
-      month: _currentMonth, year: _currentYear);
+  Widget _syncInfoCard() {
+    return FutureBuilder<bool>(
+      future: DatabaseService.hasPendingChanges(),
+      builder: (context, snapshot) {
+        final pending = snapshot.data ?? false;
+        return Container(
+          padding: const EdgeInsets.all(13),
+          decoration: BoxDecoration(
+            color: AppColors.card2,
+            borderRadius: BorderRadius.circular(14),
+          ),
+          child: Row(
+            children: [
+              Icon(
+                pending
+                    ? Icons.cloud_upload_outlined
+                    : Icons.cloud_done_outlined,
+                color: pending ? AppColors.gold : AppColors.accent,
+                size: 19,
+              ),
+              const SizedBox(width: 9),
+              Expanded(
+                child: Text(
+                  pending
+                      ? 'কিছু তথ্য অনলাইনে Sync হওয়ার অপেক্ষায় আছে।'
+                      : 'আপনার OT তথ্য ডিভাইসে সংরক্ষিত থাকে এবং অনলাইনে Sync হয়।',
+                  style: const TextStyle(
+                    color: AppColors.text2,
+                    fontSize: 11,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
 
-  Widget _buildSettings() => SettingsScreen(
-      profile: _profile,
-      onProfileUpdated: (p) => setState(() => _profile = p));
 }
