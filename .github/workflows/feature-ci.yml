@@ -32,12 +32,19 @@ jobs:
         run: |
           flutter --version
           flutter doctor --verbose
-      - name: Install required Android SDK and NDK
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+      - name: Install Android SDK and NDK
         run: |
-          yes | sdkmanager --licenses >/dev/null
           sdkmanager --install "platforms;android-36" "ndk;28.2.13676358"
-      - name: Get dependencies
-        run: flutter pub get
+      - name: Clean and get dependencies
+        run: |
+          flutter clean
+          flutter pub get
+      - name: Generate Android Launcher Icons
+        run: dart run flutter_launcher_icons
+      - name: Verify launcher icon output
+        run: test -f android/app/src/main/res/mipmap-mdpi/ic_launcher.png
       - name: Analyze
         run: flutter analyze
       - name: Unit and widget tests
@@ -64,11 +71,12 @@ jobs:
           PY
           echo "MainActivity:"
           cat android/app/src/main/kotlin/com/otdiary/app/MainActivity.kt
-      - name: Build debug APK (verbose)
-        run: flutter build apk --debug -v
-      - name: Upload debug APK
+      - name: Build debug APK
+        run: flutter build apk --debug
+      - name: Upload Debug APK
         uses: actions/upload-artifact@v4
         with:
           name: OT-Diary-feature-debug-apk
           path: build/app/outputs/flutter-apk/app-debug.apk
+          if-no-files-found: error
           retention-days: 14
