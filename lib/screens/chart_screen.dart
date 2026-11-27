@@ -15,12 +15,13 @@ class ChartScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context); // Rebuild when the global palette changes.
     final days = otData.keys.toList()..sort();
     final bars = days.map((d) => BarChartGroupData(
       x: d,
       barRods: [BarChartRodData(
         toY: otData[d]!,
-        gradient: const LinearGradient(
+        gradient: LinearGradient(
           colors: [AppColors.accent, AppColors.gold],
           begin: Alignment.bottomCenter, end: Alignment.topCenter,
         ),
@@ -36,7 +37,7 @@ class ChartScreen extends StatelessWidget {
       appBar: AppBar(
         backgroundColor: AppColors.bg,
         title: Text('${AppStrings.months[month]} চার্ট',
-          style: const TextStyle(color: AppColors.accent, fontWeight: FontWeight.w800)),
+          style: TextStyle(color: AppColors.accent, fontWeight: FontWeight.w800)),
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
@@ -60,7 +61,7 @@ class ChartScreen extends StatelessWidget {
                 color: AppColors.card, borderRadius: BorderRadius.circular(20),
                 border: Border.all(color: AppColors.border),
               ),
-              child: const Center(
+              child: Center(
                 child: Text('এই মাসে কোনো OT নেই',
                   style: TextStyle(color: AppColors.muted, fontSize: 15)),
               ),
@@ -87,12 +88,12 @@ class ChartScreen extends StatelessWidget {
                   leftTitles: AxisTitles(sideTitles: SideTitles(
                     showTitles: true, reservedSize: 30,
                     getTitlesWidget: (v, _) => Text('${v.toInt()}',
-                      style: const TextStyle(fontSize: 10, color: AppColors.muted)),
+                      style: TextStyle(fontSize: 10, color: AppColors.muted)),
                   )),
                   bottomTitles: AxisTitles(sideTitles: SideTitles(
                     showTitles: true, reservedSize: 24,
                     getTitlesWidget: (v, _) => Text('${v.toInt()}',
-                      style: const TextStyle(fontSize: 9, color: AppColors.muted)),
+                      style: TextStyle(fontSize: 9, color: AppColors.muted)),
                   )),
                   topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
                   rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
@@ -120,23 +121,23 @@ class ChartScreen extends StatelessWidget {
               Padding(
                 padding: const EdgeInsets.all(16),
                 child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                  const Text('দৈনিক বিবরণ',
+                  Text('দৈনিক বিবরণ',
                     style: TextStyle(fontWeight: FontWeight.w700, color: AppColors.text2)),
                   Text('${otData.length}টি এন্ট্রি',
-                    style: const TextStyle(fontSize: 12, color: AppColors.accent)),
+                    style: TextStyle(fontSize: 12, color: AppColors.accent)),
                 ]),
               ),
-              const Divider(color: AppColors.border, height: 1),
+              Divider(color: AppColors.border, height: 1),
               ...days.map((d) => ListTile(
                 dense: true,
                 title: Text('$d ${AppStrings.months[month]}',
-                  style: const TextStyle(fontSize: 13, color: AppColors.text)),
+                  style: TextStyle(fontSize: 13, color: AppColors.text)),
                 trailing: Row(mainAxisSize: MainAxisSize.min, children: [
                   Text('${otData[d]}h',
-                    style: const TextStyle(color: AppColors.accent, fontWeight: FontWeight.w700)),
+                    style: TextStyle(color: AppColors.accent, fontWeight: FontWeight.w700)),
                   const SizedBox(width: 12),
                   Text('৳${((otData[d]! * profile.rate)).toStringAsFixed(0)}',
-                    style: const TextStyle(color: AppColors.gold, fontSize: 12)),
+                    style: TextStyle(color: AppColors.gold, fontSize: 12)),
                 ]),
               )).toList(),
             ]),

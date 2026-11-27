@@ -9,6 +9,8 @@ import '../services/database_service.dart';
 import '../services/pdf_service.dart';
 import '../utils/ot_analytics.dart';
 import 'chart_screen.dart';
+import 'extra_tools_screen.dart';
+import '../services/extra_tools.dart';
 import 'settings_screen.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -37,6 +39,7 @@ class _HomeScreenState extends State<HomeScreen> {
   String? _photoPath;
   bool _saving = false;
   bool _loading = false;
+  double _monthlyTarget = 120;
 
   @override
   void initState() {
@@ -70,22 +73,32 @@ class _HomeScreenState extends State<HomeScreen> {
     _dirtyDays.clear();
   }
 
+  Future<void> _openExtraTools() async {
+    if (_loading || _saving) return;
+    FocusScope.of(context).unfocus();
+    await Navigator.of(context).push<void>(MaterialPageRoute(builder: (_) => ExtraToolsScreen(
+      profile: _profile, year: _currentYear, month: _currentMonth + 1, data: Map.of(_otData),
+    )));
+    if (mounted) await _loadData();
+  }
+
   Future<void> _loadData() async {
     if (!mounted) return;
     setState(() => _loading = true);
 
-    final data = await DatabaseService.getMonthData(
-      _currentYear,
-      _currentMonth + 1,
-    );
-
-    if (!mounted) return;
+    final year = _currentYear;
+    final month = _currentMonth + 1;
+    final data = await DatabaseService.getMonthData(year, month);
+    final target = await ExtraTools.target(year, month);
+    if (!mounted || year != _currentYear || month != _currentMonth + 1) return;
+    _monthlyTarget = target;
     _clearControllers();
     setState(() {
       _otData = data;
       _loading = false;
     });
     _initControllers();
+    await ExtraTools.publishWidget(year, month, data);
   }
 
   void _initControllers() {
@@ -112,6 +125,7 @@ class _HomeScreenState extends State<HomeScreen> {
   int get _otDays => _otData.values.where((hours) => hours > 0).length;
 
   void _changeMonth(int direction) {
+    if (_saving || _loading) return;
     _clearControllers();
     setState(() {
       _currentMonth += direction;
@@ -149,6 +163,8 @@ class _HomeScreenState extends State<HomeScreen> {
       );
       if (!mounted) return;
       setState(() => _saving = false);
+      await ExtraTools.publishWidget(_currentYear, _currentMonth + 1, _otData);
+      if (!mounted) return;
       _showToast(
         DatabaseService.isOnline
             ? 'OT সেভ হয়েছে'
@@ -164,7 +180,13 @@ class _HomeScreenState extends State<HomeScreen> {
   void _commitDay(int day) {
     if (!_dirtyDays.remove(day)) return;
     final controller = _controllers[day];
-    final value = double.tryParse(controller?.text.trim() ?? '') ?? 0;
+    final raw = controller?.text.trim() ?? '';
+    final value = raw.isEmpty ? 0.0 : double.tryParse(raw);
+    if (value == null || !ExtraTools.validHours(value)) {
+      if (controller != null) controller.text = (_otData[day] ?? 0) > 0 ? OtAnalytics.formatHours(_otData[day]!) : '';
+      _showToast('০ থেকে ২৪ ঘণ্টার মধ্যে সঠিক সংখ্যা লিখুন।', error: true);
+      return;
+    }
     _saveDay(day, value);
     FocusScope.of(context).unfocus();
   }
@@ -233,11 +255,13 @@ class _HomeScreenState extends State<HomeScreen> {
     if (!mounted) return;
     setState(() => _otData = <int, double>{});
     _initControllers();
-    _showToast('এই মাসের OT রিসেট হয়েছে');
+    await ExtraTools.publishWidget(_currentYear, _currentMonth + 1, _otData);
+    if (mounted) _showToast('এই মাসের OT রিসেট হয়েছে');
   }
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context); // Rebuild when the global palette changes.
     final pages = <Widget>[
       _buildHome(),
       ChartScreen(
@@ -307,7 +331,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   color: AppColors.accent.withValues(alpha: 0.14),
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: const Icon(
+                child: Icon(
                   Icons.bolt_rounded,
                   color: AppColors.accent,
                   size: 22,
@@ -326,7 +350,7 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
           actions: [
             if (_saving || _loading)
-              const Padding(
+              Padding(
                 padding: EdgeInsets.only(right: 8),
                 child: Center(
                   child: SizedBox(
@@ -362,6 +386,12 @@ class _HomeScreenState extends State<HomeScreen> {
                 _monthSelector(),
                 const SizedBox(height: 16),
                 _summaryCards(),
+                const SizedBox(height: 12),
+                OutlinedButton.icon(
+                  onPressed: _loading || _saving ? null : _openExtraTools,
+                  icon: const Icon(Icons.calendar_month),
+                  label: const Text('ক্যালেন্ডার • দ্রুত OT • আরও সুবিধা'),
+                ),
                 const SizedBox(height: 16),
                 _distributionCard(),
                 const SizedBox(height: 16),
@@ -392,7 +422,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 _entryLegend(),
                 const SizedBox(height: 10),
                 if (_loading)
-                  const Padding(
+                  Padding(
                     padding: EdgeInsets.all(28),
                     child: Center(
                       child: CircularProgressIndicator(
@@ -416,8 +446,8 @@ class _HomeScreenState extends State<HomeScreen> {
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [Color(0xFF15334A), Color(0xFF102338)],
+        gradient: LinearGradient(
+          colors: AppColors.lightMode.value ? const [Color(0xFFE1EDF7), Color(0xFFF7FBFF)] : const [Color(0xFF15334A), Color(0xFF102338)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
@@ -446,7 +476,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   _profile.idNo.isEmpty
                       ? 'আপনার OT হিসাব এখানে রাখুন'
                       : 'আইডি: ${_profile.idNo}',
-                  style: const TextStyle(
+                  style: TextStyle(
                     color: AppColors.text2,
                     fontSize: 12,
                   ),
@@ -463,7 +493,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                   child: Text(
                     'OT Rate: ৳${OtAnalytics.formatHours(_profile.rate)}/ঘণ্টা',
-                    style: const TextStyle(
+                    style: TextStyle(
                       color: AppColors.accent,
                       fontSize: 11,
                       fontWeight: FontWeight.w700,
@@ -473,7 +503,7 @@ class _HomeScreenState extends State<HomeScreen> {
               ],
             ),
           ),
-          const Icon(
+          Icon(
             Icons.verified_user_outlined,
             color: AppColors.accent,
             size: 21,
@@ -561,7 +591,7 @@ class _HomeScreenState extends State<HomeScreen> {
               children: [
                 Text(
                   AppStrings.months[_currentMonth],
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.w800,
                     color: AppColors.accent,
@@ -569,7 +599,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
                 Text(
                   '$_currentYear',
-                  style: const TextStyle(
+                  style: TextStyle(
                     color: AppColors.muted,
                     fontSize: 12,
                   ),
@@ -616,8 +646,8 @@ class _HomeScreenState extends State<HomeScreen> {
           width: double.infinity,
           padding: const EdgeInsets.all(18),
           decoration: BoxDecoration(
-            gradient: const LinearGradient(
-              colors: [Color(0xFF193D42), Color(0xFF153044)],
+            gradient: LinearGradient(
+              colors: AppColors.lightMode.value ? const [Color(0xFFDDF1E8), Color(0xFFF0F8F7)] : const [Color(0xFF193D42), Color(0xFF153044)],
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
             ),
@@ -629,7 +659,7 @@ class _HomeScreenState extends State<HomeScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Row(
+              Row(
                 children: [
                   Icon(
                     Icons.account_balance_wallet_outlined,
@@ -650,7 +680,7 @@ class _HomeScreenState extends State<HomeScreen> {
               const SizedBox(height: 8),
               Text(
                 '৳${_otEarning.toStringAsFixed(0)}',
-                style: const TextStyle(
+                style: TextStyle(
                   color: AppColors.accent,
                   fontSize: 30,
                   fontWeight: FontWeight.w900,
@@ -693,7 +723,7 @@ class _HomeScreenState extends State<HomeScreen> {
           const SizedBox(height: 10),
           Text(
             title,
-            style: const TextStyle(
+            style: TextStyle(
               color: AppColors.muted,
               fontSize: 11,
             ),
@@ -721,7 +751,7 @@ class _HomeScreenState extends State<HomeScreen> {
         children: [
           Text(
             label,
-            style: const TextStyle(
+            style: TextStyle(
               color: AppColors.muted,
               fontSize: 10,
             ),
@@ -731,7 +761,7 @@ class _HomeScreenState extends State<HomeScreen> {
             '৳${value.toStringAsFixed(0)}',
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
+            style: TextStyle(
               color: AppColors.text,
               fontSize: 12,
               fontWeight: FontWeight.w700,
@@ -765,7 +795,7 @@ class _HomeScreenState extends State<HomeScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Row(
+          Row(
             children: [
               Icon(
                 Icons.stacked_bar_chart_rounded,
@@ -785,7 +815,7 @@ class _HomeScreenState extends State<HomeScreen> {
             ],
           ),
           const SizedBox(height: 5),
-          const Text(
+          Text(
             'একই পরিমাণ OT যেদিন করেছেন, সেগুলো একসঙ্গে দেখানো হচ্ছে।',
             style: TextStyle(
               color: AppColors.muted,
@@ -794,7 +824,7 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
           const SizedBox(height: 14),
           if (groups.isEmpty)
-            const Text(
+            Text(
               'এই মাসে এখনো OT এন্ট্রি নেই।',
               style: TextStyle(
                 color: AppColors.text2,
@@ -823,7 +853,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     children: [
                       Text(
                         '${OtAnalytics.formatHours(group.hours)} ঘণ্টা',
-                        style: const TextStyle(
+                        style: TextStyle(
                           color: AppColors.purple,
                           fontSize: 14,
                           fontWeight: FontWeight.w800,
@@ -831,7 +861,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       ),
                       Text(
                         '${group.days} দিন',
-                        style: const TextStyle(
+                        style: TextStyle(
                           color: AppColors.text2,
                           fontSize: 11,
                         ),
@@ -847,7 +877,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _progressCard() {
-    const targetHours = 120.0;
+    final targetHours = _monthlyTarget;
     final progress = (_totalHours / targetHours).clamp(0.0, 1.0);
 
     return Container(
@@ -872,8 +902,8 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ),
               Text(
-                '${OtAnalytics.formatHours(_totalHours)} / 120 ঘণ্টা',
-                style: const TextStyle(
+                '${OtAnalytics.formatHours(_totalHours)} / ${OtAnalytics.formatHours(targetHours)} ঘণ্টা',
+                style: TextStyle(
                   color: AppColors.accent,
                   fontSize: 11,
                   fontWeight: FontWeight.w700,
@@ -888,7 +918,7 @@ class _HomeScreenState extends State<HomeScreen> {
               value: progress,
               minHeight: 9,
               backgroundColor: AppColors.card2,
-              valueColor: const AlwaysStoppedAnimation(AppColors.accent),
+              valueColor: AlwaysStoppedAnimation(AppColors.accent),
             ),
           ),
         ],
@@ -898,7 +928,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _entryLegend() {
     return Row(
-      children: const [
+      children: [
         Expanded(
           child: Text(
             'তারিখ ও বার',
@@ -940,7 +970,7 @@ class _HomeScreenState extends State<HomeScreen> {
     );
 
     final dayColor = weekday == 5
-        ? const Color(0xFF7CB7FF)
+        ? (AppColors.lightMode.value ? const Color(0xFF285B96) : const Color(0xFF7CB7FF))
         : weekday == 6
             ? AppColors.orange
             : AppColors.text2;
@@ -949,7 +979,7 @@ class _HomeScreenState extends State<HomeScreen> {
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
       decoration: BoxDecoration(
-        color: hasOt ? const Color(0xFF102C35) : AppColors.card,
+        color: hasOt ? (AppColors.lightMode.value ? const Color(0xFFE0F2EB) : const Color(0xFF102C35)) : AppColors.card,
         borderRadius: BorderRadius.circular(15),
         border: Border.all(
           color: hasOt
@@ -985,7 +1015,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
                 if (isToday) ...[
                   const SizedBox(width: 5),
-                  const Icon(
+                  Icon(
                     Icons.circle,
                     color: AppColors.gold,
                     size: 6,
@@ -1015,7 +1045,7 @@ class _HomeScreenState extends State<HomeScreen> {
               decoration: InputDecoration(
                 hintText: '০',
                 suffixText: 'h',
-                suffixStyle: const TextStyle(
+                suffixStyle: TextStyle(
                   color: AppColors.muted,
                   fontSize: 11,
                 ),
@@ -1055,7 +1085,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   ? OtAnalytics.formatHours(_cumulative(day))
                   : '—',
               textAlign: TextAlign.end,
-              style: const TextStyle(
+              style: TextStyle(
                 color: AppColors.text2,
                 fontSize: 11,
                 fontWeight: FontWeight.w700,
@@ -1101,7 +1131,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   pending
                       ? 'কিছু তথ্য অনলাইনে Sync হওয়ার অপেক্ষায় আছে।'
                       : 'আপনার OT তথ্য ডিভাইসে সংরক্ষিত থাকে এবং অনলাইনে Sync হয়।',
-                  style: const TextStyle(
+                  style: TextStyle(
                     color: AppColors.text2,
                     fontSize: 11,
                   ),
