@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.2.0 — Tools update (pending CI/device verification)
+- Calendar, quick entry, holidays and configurable monthly target.
+- Light/dark palette, password reset, CSV, Bengali PDF and annual summary.
+- JSON backup and non-destructive OT restore, Android home widget.
+
+
 ## 2.1.0 — Modern OT Diary Patch
 
 ### Added

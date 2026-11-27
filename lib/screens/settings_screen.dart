@@ -7,6 +7,7 @@ import 'package:image_picker/image_picker.dart';
 import '../app_theme.dart';
 import '../models/user_profile.dart';
 import '../services/database_service.dart';
+import '../services/extra_tools.dart';
 import '../services/notification_service.dart';
 import 'auth_screen.dart';
 
@@ -322,10 +323,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
       keyboardType: numeric
           ? const TextInputType.numberWithOptions(decimal: true)
           : TextInputType.text,
-      style: const TextStyle(color: AppColors.text),
+      style: TextStyle(color: AppColors.text),
       decoration: InputDecoration(
         labelText: label,
-        labelStyle: const TextStyle(color: AppColors.muted),
+        labelStyle: TextStyle(color: AppColors.muted),
       ),
     );
   }
@@ -407,6 +408,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
     await DatabaseService.onLogout();
     await FirebaseAuth.instance.signOut();
+    await ExtraTools.clearWidget();
     if (!mounted) return;
 
     Navigator.pushAndRemoveUntil(
@@ -421,7 +423,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       padding: const EdgeInsets.only(left: 3, bottom: 9),
       child: Text(
         title,
-        style: const TextStyle(
+        style: TextStyle(
           color: AppColors.muted,
           fontSize: 12,
           fontWeight: FontWeight.w700,
@@ -444,6 +446,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context); // Rebuild when the global palette changes.
     final reminderText = _loadingReminder
         ? 'সময়সূচি লোড হচ্ছে...'
         : _reminderOn
@@ -476,19 +479,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         child: Container(
                           width: 25,
                           height: 25,
-                          decoration: const BoxDecoration(
+                          decoration: BoxDecoration(
                             color: AppColors.accent,
                             shape: BoxShape.circle,
                           ),
                           child: _photoBusy
-                              ? const Padding(
+                              ? Padding(
                                   padding: EdgeInsets.all(6),
                                   child: CircularProgressIndicator(
                                     strokeWidth: 2,
                                     color: AppColors.bg,
                                   ),
                                 )
-                              : const Icon(
+                              : Icon(
                                   Icons.camera_alt_rounded,
                                   color: AppColors.bg,
                                   size: 14,
@@ -512,7 +515,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         const SizedBox(height: 3),
                         Text(
                           widget.profile.email,
-                          style: const TextStyle(
+                          style: TextStyle(
                             color: AppColors.muted,
                             fontSize: 11,
                           ),
@@ -533,15 +536,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ],
               ),
             ),
-            const Divider(height: 1, color: AppColors.border),
+            Divider(height: 1, color: AppColors.border),
             ListTile(
               onTap: _editProfile,
-              leading: const Icon(
+              leading: Icon(
                 Icons.edit_outlined,
                 color: AppColors.accent,
               ),
               title: const Text('প্রোফাইল সম্পাদনা'),
-              subtitle: const Text(
+              subtitle: Text(
                 'নাম, আইডি, বেতন ও OT Rate',
                 style: TextStyle(color: AppColors.muted, fontSize: 11),
               ),
@@ -561,25 +564,25 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
               subtitle: Text(
                 reminderText,
-                style: const TextStyle(
+                style: TextStyle(
                   color: AppColors.muted,
                   fontSize: 11,
                 ),
               ),
-              secondary: const Icon(
+              secondary: Icon(
                 Icons.notifications_active_outlined,
                 color: AppColors.gold,
               ),
             ),
-            const Divider(height: 1, color: AppColors.border),
+            Divider(height: 1, color: AppColors.border),
             ListTile(
               onTap: _chooseReminderTime,
-              leading: const Icon(
+              leading: Icon(
                 Icons.schedule_rounded,
                 color: AppColors.accent,
               ),
               title: const Text('রিমাইন্ডারের সময় পরিবর্তন'),
-              subtitle: const Text(
+              subtitle: Text(
                 '“আজকের OT কত ঘণ্টা হয়েছে? লিখে রাখুন।”',
                 style: TextStyle(color: AppColors.muted, fontSize: 11),
               ),
@@ -590,12 +593,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
           _sectionTitle('ডেটা ও সিঙ্ক'),
           _settingsCard([
             ListTile(
-              leading: const Icon(
+              leading: Icon(
                 Icons.cloud_sync_outlined,
                 color: AppColors.accent,
               ),
               title: const Text('Offline-first সেভিং'),
-              subtitle: const Text(
+              subtitle: Text(
                 'প্রথমে ফোনে সেভ হবে, ইন্টারনেট এলে Firebase-এ Sync হবে।',
                 style: TextStyle(color: AppColors.muted, fontSize: 11),
               ),
@@ -616,7 +619,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     pending
                         ? 'কিছু তথ্য Sync হওয়ার অপেক্ষায় আছে'
                         : 'কোনো Pending Sync নেই',
-                    style: const TextStyle(
+                    style: TextStyle(
                       color: AppColors.muted,
                       fontSize: 11,
                     ),
@@ -639,12 +642,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
           _settingsCard([
             ListTile(
               onTap: _logout,
-              leading: const Icon(
+              leading: Icon(
                 Icons.logout_rounded,
                 color: AppColors.red,
               ),
               title: const Text('লগআউট'),
-              subtitle: const Text(
+              subtitle: Text(
                 'স্থানীয় Cache মুছে না ফেলে অ্যাকাউন্ট থেকে বের হন',
                 style: TextStyle(color: AppColors.muted, fontSize: 11),
               ),
@@ -652,7 +655,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
           ]),
           const SizedBox(height: 28),
-          const Center(
+          Center(
             child: Text(
               'OT Diary · Version 2.1',
               style: TextStyle(

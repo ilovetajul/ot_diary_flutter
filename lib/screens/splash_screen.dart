@@ -54,6 +54,7 @@ class _SplashScreenState extends State<SplashScreen>
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context); // Rebuild when the global palette changes.
     return Scaffold(
       backgroundColor: AppColors.bg,
       body: Center(
@@ -65,7 +66,7 @@ class _SplashScreenState extends State<SplashScreen>
               child: Container(
                 width: 100, height: 100,
                 decoration: BoxDecoration(
-                  gradient: const LinearGradient(
+                  gradient: LinearGradient(
                     colors: [AppColors.accent, Color(0xFF0097A7)],
                     begin: Alignment.topLeft, end: Alignment.bottomRight,
                   ),
@@ -85,7 +86,7 @@ class _SplashScreenState extends State<SplashScreen>
               opacity: _fade,
               child: Column(children: [
                 ShaderMask(
-                  shaderCallback: (bounds) => const LinearGradient(
+                  shaderCallback: (bounds) => LinearGradient(
                     colors: [AppColors.accent, AppColors.gold],
                   ).createShader(bounds),
                   child: const Text('OT DIARY',
@@ -102,7 +103,7 @@ class _SplashScreenState extends State<SplashScreen>
                   width: 40,
                   child: LinearProgressIndicator(
                     backgroundColor: AppColors.border,
-                    valueColor: const AlwaysStoppedAnimation(AppColors.accent),
+                    valueColor: AlwaysStoppedAnimation(AppColors.accent),
                     borderRadius: BorderRadius.circular(10),
                   ),
                 ),

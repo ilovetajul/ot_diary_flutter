@@ -50,6 +50,23 @@ class _AuthScreenState extends State<AuthScreen> with TickerProviderStateMixin {
     super.dispose();
   }
 
+  Future<void> _resetPassword() async {
+    final email = _loginEmail.text.trim();
+    if (!email.contains('@') || email.isEmpty) {
+      setState(() => _err = 'লগইন ইমেইল লিখে আবার চেষ্টা করুন।');
+      return;
+    }
+    setState(() => _loading = true);
+    try {
+      await FirebaseAuth.instance.sendPasswordResetEmail(email: email);
+      if (mounted) setState(() => _err = 'ইমেইল ঠিক থাকলে পাসওয়ার্ড রিসেট লিংক পাবেন।');
+    } on FirebaseAuthException catch (error) {
+      if (mounted) setState(() => _err = error.code == 'user-not-found' ? 'ইমেইল ঠিক থাকলে রিসেট লিংক পাবেন।' : 'রিসেট পাঠানো যায়নি। ইন্টারনেট ও ইমেইল পরীক্ষা করুন।');
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
   Future<void> _login() async {
     if (_loginEmail.text.isEmpty || _loginPass.text.isEmpty) {
       setState(() => _err = 'ইমেইল ও পাসওয়ার্ড দিন');
@@ -136,6 +153,7 @@ class _AuthScreenState extends State<AuthScreen> with TickerProviderStateMixin {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context); // Rebuild when the global palette changes.
     return Scaffold(
       backgroundColor: AppColors.bg,
       body: SafeArea(
@@ -148,7 +166,7 @@ class _AuthScreenState extends State<AuthScreen> with TickerProviderStateMixin {
                 width: 88,
                 height: 88,
                 decoration: BoxDecoration(
-                  gradient: const LinearGradient(
+                  gradient: LinearGradient(
                     colors: [AppColors.accent, Color(0xFF0097A7)],
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
@@ -168,7 +186,7 @@ class _AuthScreenState extends State<AuthScreen> with TickerProviderStateMixin {
               ),
               const SizedBox(height: 16),
               ShaderMask(
-                shaderCallback: (bounds) => const LinearGradient(
+                shaderCallback: (bounds) => LinearGradient(
                   colors: [AppColors.accent, AppColors.gold],
                 ).createShader(bounds),
                 child: const Text(
@@ -208,16 +226,16 @@ class _AuthScreenState extends State<AuthScreen> with TickerProviderStateMixin {
                       child: TabBar(
                         controller: _tab,
                         indicator: BoxDecoration(
-                          gradient: const LinearGradient(
+                          gradient: LinearGradient(
                             colors: [
                               AppColors.accent,
-                              Color(0xFF00B89C),
+                              AppColors.lightMode.value ? const Color(0xFF087D70) : const Color(0xFF00B89C),
                             ],
                           ),
                           borderRadius: BorderRadius.circular(14),
                         ),
                         indicatorSize: TabBarIndicatorSize.tab,
-                        labelColor: Colors.black,
+                        labelColor: AppColors.lightMode.value ? Colors.white : Colors.black,
                         unselectedLabelColor: AppColors.muted,
                         labelStyle: const TextStyle(
                           fontWeight: FontWeight.w700,
@@ -256,6 +274,7 @@ class _AuthScreenState extends State<AuthScreen> with TickerProviderStateMixin {
                                 ),
                                 const SizedBox(height: 16),
                                 _submitBtn('লগইন করুন →', _login),
+                                TextButton(onPressed: _loading ? null : _resetPassword, child: const Text('পাসওয়ার্ড ভুলে গেছেন?')),
                               ],
                             ),
                           ),
@@ -346,7 +365,7 @@ class _AuthScreenState extends State<AuthScreen> with TickerProviderStateMixin {
                     ),
                     child: Text(
                       _err,
-                      style: const TextStyle(
+                      style: TextStyle(
                         color: AppColors.red,
                         fontSize: 13,
                       ),
@@ -371,7 +390,7 @@ class _AuthScreenState extends State<AuthScreen> with TickerProviderStateMixin {
       controller: controller,
       keyboardType: type,
       obscureText: obscure,
-      style: const TextStyle(color: AppColors.text, fontSize: 14),
+      style: TextStyle(color: AppColors.text, fontSize: 14),
       decoration: InputDecoration(
         hintText: hint,
         hintStyle: TextStyle(color: AppColors.muted, fontSize: 13),
@@ -383,15 +402,15 @@ class _AuthScreenState extends State<AuthScreen> with TickerProviderStateMixin {
         ),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
-          borderSide: const BorderSide(color: AppColors.border),
+          borderSide: BorderSide(color: AppColors.border),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
-          borderSide: const BorderSide(color: AppColors.border),
+          borderSide: BorderSide(color: AppColors.border),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
-          borderSide: const BorderSide(
+          borderSide: BorderSide(
             color: AppColors.accent,
             width: 1.5,
           ),
@@ -409,7 +428,7 @@ class _AuthScreenState extends State<AuthScreen> with TickerProviderStateMixin {
     return TextField(
       controller: controller,
       obscureText: !visible,
-      style: const TextStyle(color: AppColors.text, fontSize: 14),
+      style: TextStyle(color: AppColors.text, fontSize: 14),
       decoration: InputDecoration(
         hintText: hint,
         hintStyle: TextStyle(color: AppColors.muted, fontSize: 13),
@@ -429,15 +448,15 @@ class _AuthScreenState extends State<AuthScreen> with TickerProviderStateMixin {
         ),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
-          borderSide: const BorderSide(color: AppColors.border),
+          borderSide: BorderSide(color: AppColors.border),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
-          borderSide: const BorderSide(color: AppColors.border),
+          borderSide: BorderSide(color: AppColors.border),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
-          borderSide: const BorderSide(
+          borderSide: BorderSide(
             color: AppColors.accent,
             width: 1.5,
           ),
@@ -451,8 +470,8 @@ class _AuthScreenState extends State<AuthScreen> with TickerProviderStateMixin {
       width: double.infinity,
       child: DecoratedBox(
         decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            colors: [AppColors.accent, Color(0xFF00B89C)],
+          gradient: LinearGradient(
+            colors: [AppColors.accent, AppColors.lightMode.value ? const Color(0xFF087D70) : const Color(0xFF00B89C)],
           ),
           borderRadius: BorderRadius.circular(16),
           boxShadow: [
@@ -474,18 +493,18 @@ class _AuthScreenState extends State<AuthScreen> with TickerProviderStateMixin {
             ),
           ),
           child: _loading
-              ? const SizedBox(
+              ? SizedBox(
                   width: 20,
                   height: 20,
                   child: CircularProgressIndicator(
                     strokeWidth: 2,
-                    color: Colors.black,
+                    color: AppColors.lightMode.value ? Colors.white : Colors.black,
                   ),
                 )
               : Text(
                   label,
-                  style: const TextStyle(
-                    color: Colors.black,
+                  style: TextStyle(
+                    color: AppColors.lightMode.value ? Colors.white : Colors.black,
                     fontSize: 15,
                     fontWeight: FontWeight.w800,
                   ),

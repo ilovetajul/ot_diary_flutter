@@ -6,10 +6,12 @@ import 'app_theme.dart';
 import 'firebase_options.dart';
 import 'screens/splash_screen.dart';
 import 'services/database_service.dart';
+import 'services/extra_tools.dart';
 import 'services/notification_service.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await AppColors.initialize();
 
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
@@ -17,16 +19,17 @@ Future<void> main() async {
 
   // Must run before any Realtime Database reference is used.
   await DatabaseService.initialize();
+  if (!DatabaseService.isLoggedIn) await ExtraTools.clearWidget();
 
   await NotificationService.init();
   await NotificationService.rescheduleOnBoot();
 
   SystemChrome.setSystemUIOverlayStyle(
-    const SystemUiOverlayStyle(
+    SystemUiOverlayStyle(
       statusBarColor: Colors.transparent,
-      statusBarIconBrightness: Brightness.light,
+      statusBarIconBrightness: AppColors.lightMode.value ? Brightness.dark : Brightness.light,
       systemNavigationBarColor: AppColors.bg,
-      systemNavigationBarIconBrightness: Brightness.light,
+      systemNavigationBarIconBrightness: AppColors.lightMode.value ? Brightness.dark : Brightness.light,
     ),
   );
   await SystemChrome.setPreferredOrientations(
@@ -41,14 +44,21 @@ class OTDiaryApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    return ValueListenableBuilder<bool>(
+      valueListenable: AppColors.lightMode,
+      builder: (context, value, child) => _buildApp(),
+    );
+  }
+
+  Widget _buildApp() {
     final base = ThemeData(
       useMaterial3: true,
-      brightness: Brightness.dark,
+      brightness: AppColors.brightness,
       fontFamily: 'HindSiliguri',
       scaffoldBackgroundColor: AppColors.bg,
       colorScheme: ColorScheme.fromSeed(
         seedColor: AppColors.accent,
-        brightness: Brightness.dark,
+        brightness: AppColors.brightness,
         surface: AppColors.card,
       ).copyWith(
         primary: AppColors.accent,
@@ -61,7 +71,7 @@ class OTDiaryApp extends StatelessWidget {
       title: 'OT Diary',
       debugShowCheckedModeBanner: false,
       theme: base.copyWith(
-        appBarTheme: const AppBarTheme(
+        appBarTheme: AppBarTheme(
           backgroundColor: AppColors.bg,
           foregroundColor: AppColors.text,
           elevation: 0,
@@ -73,7 +83,7 @@ class OTDiaryApp extends StatelessWidget {
           elevation: 0,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(22),
-            side: const BorderSide(color: AppColors.border),
+            side: BorderSide(color: AppColors.border),
           ),
         ),
         inputDecorationTheme: InputDecorationTheme(
@@ -85,15 +95,15 @@ class OTDiaryApp extends StatelessWidget {
           ),
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(14),
-            borderSide: const BorderSide(color: AppColors.border),
+            borderSide: BorderSide(color: AppColors.border),
           ),
           enabledBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(14),
-            borderSide: const BorderSide(color: AppColors.border),
+            borderSide: BorderSide(color: AppColors.border),
           ),
           focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(14),
-            borderSide: const BorderSide(
+            borderSide: BorderSide(
               color: AppColors.accent,
               width: 1.5,
             ),

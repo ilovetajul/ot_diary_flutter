@@ -63,9 +63,9 @@ class DatabaseService {
 
   static Map<int, double> _decodeHours(dynamic raw) {
     final result = <int, double>{};
-    if (raw is! Map) return result;
+    final entries = raw is Map ? raw : raw is List ? raw.asMap() : <dynamic, dynamic>{};
 
-    raw.forEach((key, value) {
+    entries.forEach((key, value) {
       final day = int.tryParse(key.toString());
       final hours = value is num
           ? value.toDouble()
@@ -394,17 +394,17 @@ class DatabaseService {
             .get()
             .timeout(const Duration(seconds: 6));
 
-        if (snapshot.exists && snapshot.value != null) {
-          final cloud = _decodeHours(snapshot.value);
-
-          // Merge rather than blindly clearing a local cache. Cloud values
-          // win for matching days; cached days remain as a safety fallback.
-          final merged = <int, double>{...local, ...cloud};
-          await prefs.setString(
-            _cacheKey(key),
-            jsonEncode(_encodeHours(merged)),
-          );
-          return merged;
+        final cloud = _decodeHours(snapshot.value);
+        // Use server data only when no pending edits appeared while reading.
+        if (path.startsWith('users/$uid/')) {
+          return await _withQueueLock<Map<int, double>>((queue, preferences) async {
+            if (queue.keys.any((p) => p == path || p.startsWith('$path/'))) {
+              final latest = preferences.getString(_cacheKey(key));
+              return latest == null ? <int, double>{} : _decodeHours(jsonDecode(latest));
+            }
+            await preferences.setString(_cacheKey(key), jsonEncode(_encodeHours(cloud)));
+            return cloud;
+          });
         }
       } catch (_) {
         // Offline or timeout: use the local cache.
