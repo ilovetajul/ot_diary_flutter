@@ -1,54 +1,103 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 import 'package:firebase_core/firebase_core.dart';
-import 'package:google_fonts/google_fonts.dart';
 
+import 'app_theme.dart';
 import 'firebase_options.dart';
 import 'screens/splash_screen.dart';
+import 'services/database_service.dart';
 import 'services/notification_service.dart';
 
-void main() async {
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   await Firebase.initializeApp(
-      options: DefaultFirebaseOptions.currentPlatform);
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
+
+  // Must run before any Realtime Database reference is used.
+  await DatabaseService.initialize();
 
   await NotificationService.init();
   await NotificationService.rescheduleOnBoot();
 
   SystemChrome.setSystemUIOverlayStyle(
     const SystemUiOverlayStyle(
-      statusBarColor:          Colors.transparent,
+      statusBarColor: Colors.transparent,
       statusBarIconBrightness: Brightness.light,
+      systemNavigationBarColor: AppColors.bg,
+      systemNavigationBarIconBrightness: Brightness.light,
     ),
   );
-  SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
+  await SystemChrome.setPreferredOrientations(
+    [DeviceOrientation.portraitUp],
+  );
 
   runApp(const OTDiaryApp());
 }
 
 class OTDiaryApp extends StatelessWidget {
   const OTDiaryApp({super.key});
+
   @override
   Widget build(BuildContext context) {
+    final base = ThemeData(
+      useMaterial3: true,
+      brightness: Brightness.dark,
+      fontFamily: 'HindSiliguri',
+      scaffoldBackgroundColor: AppColors.bg,
+      colorScheme: ColorScheme.fromSeed(
+        seedColor: AppColors.accent,
+        brightness: Brightness.dark,
+        surface: AppColors.card,
+      ).copyWith(
+        primary: AppColors.accent,
+        secondary: AppColors.orange,
+        surface: AppColors.card,
+      ),
+    );
+
     return MaterialApp(
       title: 'OT Diary',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        useMaterial3: true,
-        brightness: Brightness.dark,
-        scaffoldBackgroundColor: const Color(0xFF060A14),
-        colorScheme: const ColorScheme.dark(
-          primary:   Color(0xFF00E5C0),
-          secondary: Color(0xFFFF6B35),
-          surface:   Color(0xFF0C1422),
-        ),
-        textTheme: GoogleFonts.hindSiliguriTextTheme(
-            ThemeData.dark().textTheme),
+      theme: base.copyWith(
         appBarTheme: const AppBarTheme(
-          backgroundColor: Color(0xFF060A14),
-          elevation:       0,
-          centerTitle:     true,
+          backgroundColor: AppColors.bg,
+          foregroundColor: AppColors.text,
+          elevation: 0,
+          centerTitle: false,
+          surfaceTintColor: Colors.transparent,
+        ),
+        cardTheme: CardThemeData(
+          color: AppColors.card,
+          elevation: 0,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(22),
+            side: const BorderSide(color: AppColors.border),
+          ),
+        ),
+        inputDecorationTheme: InputDecorationTheme(
+          filled: true,
+          fillColor: AppColors.card2,
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 14,
+            vertical: 13,
+          ),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(14),
+            borderSide: const BorderSide(color: AppColors.border),
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(14),
+            borderSide: const BorderSide(color: AppColors.border),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(14),
+            borderSide: const BorderSide(
+              color: AppColors.accent,
+              width: 1.5,
+            ),
+          ),
         ),
       ),
       home: const SplashScreen(),

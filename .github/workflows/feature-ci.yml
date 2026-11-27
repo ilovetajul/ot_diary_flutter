@@ -1,0 +1,131 @@
+name: OT Diary feature branch CI
+
+on:
+  push:
+    branches:
+      - feature/modern-ot-diary
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  analyze-test-build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout feature branch
+        uses: actions/checkout@v4
+
+      - name: Set up Java 17 for Android Gradle
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Confirm Java version
+        run: java -version
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.50.1'
+          channel: stable
+          cache: true
+
+      # Flutter's Gradle plugin is an included build. Its own settings file
+      # lacks pluginManagement repositories, so Kotlin DSL dependencies are
+      # being searched only in Gradle Plugin Portal. Add Maven Central there.
+      - name: Add Maven Central to Flutter Gradle plugin repositories
+        shell: bash
+        run: |
+          set -euo pipefail
+          SETTINGS_FILE="$FLUTTER_ROOT/packages/flutter_tools/gradle/settings.gradle.kts"
+          test -f "$SETTINGS_FILE"
+          python3 - "$SETTINGS_FILE" <<'PY'
+          import pathlib
+          import sys
+
+          path = pathlib.Path(sys.argv[1])
+          content = path.read_text(encoding="utf-8")
+
+          if "pluginManagement {" not in content:
+              block = "pluginManagement {\n    repositories {\n        mavenCentral()\n        google()\n        gradlePluginPortal()\n    }\n}\n\n"
+              content = block + content
+              path.write_text(content, encoding="utf-8")
+
+          updated = path.read_text(encoding="utf-8")
+          if "pluginManagement {" not in updated or "mavenCentral()" not in updated:
+              raise SystemExit("Could not configure Maven Central for Flutter's included Gradle build.")
+
+          print(f"Updated Flutter SDK settings: {path}")
+          print("\n".join(updated.splitlines()[:18]))
+          PY
+
+      - name: Flutter version and selected JDK
+        run: |
+          flutter --version
+          flutter doctor --verbose
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+        with:
+          # Skip the obsolete default "tools" package.
+          packages: ''
+
+      - name: Install Android SDK and NDK
+        run: |
+          sdkmanager --install "platform-tools" "platforms;android-36" "ndk;28.2.13676358"
+
+      - name: Clean and get dependencies
+        run: |
+          flutter clean
+          flutter pub get
+
+      - name: Generate Android Launcher Icons
+        run: dart run flutter_launcher_icons
+
+      - name: Verify launcher icon output
+        run: |
+          test -f android/app/src/main/res/mipmap-mdpi/ic_launcher.png
+          test -f android/app/src/main/res/mipmap-hdpi/ic_launcher.png
+          test -f android/app/src/main/res/mipmap-xhdpi/ic_launcher.png
+
+      - name: Analyze
+        run: flutter analyze
+
+      - name: Unit and widget tests
+        run: flutter test
+
+      - name: Diagnose Android embedding manifest
+        run: |
+          python3 - <<'PY'
+          import xml.etree.ElementTree as ET
+          path = "android/app/src/main/AndroidManifest.xml"
+          root = ET.parse(path).getroot()
+          ns = "{http://schemas.android.com/apk/res/android}"
+          application = root.find("application")
+          app_name = application.get(ns + "name") if application is not None else None
+          versions = [
+              node.get(ns + "value")
+              for node in root.iter("meta-data")
+              if node.get(ns + "name") == "flutterEmbedding"
+          ]
+          print(f"Manifest: {path}")
+          print(f"application android:name: {app_name}")
+          print(f"flutterEmbedding values: {versions}")
+          if app_name == "io.flutter.app.FlutterApplication" or "1" in versions or "2" not in versions:
+              raise SystemExit("Manifest is still detected as Android v1 embedding.")
+          PY
+          echo "MainActivity:"
+          cat android/app/src/main/kotlin/com/otdiary/app/MainActivity.kt
+
+      - name: Build debug APK
+        run: flutter build apk --debug
+
+      - name: Upload Debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: OT-Diary-feature-debug-apk
+          path: build/app/outputs/flutter-apk/app-debug.apk
+          if-no-files-found: error
+          retention-days: 14

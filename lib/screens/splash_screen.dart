@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../app_theme.dart';
 import '../services/database_service.dart';
@@ -71,7 +71,7 @@ class _SplashScreenState extends State<SplashScreen>
                   ),
                   borderRadius: BorderRadius.circular(32),
                   boxShadow: [BoxShadow(
-                    color: AppColors.accent.withOpacity(0.4),
+                    color: AppColors.accent.withValues(alpha: 0.4),
                     blurRadius: 40, spreadRadius: 5,
                   )],
                 ),
