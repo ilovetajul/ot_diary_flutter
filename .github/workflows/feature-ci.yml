@@ -107,7 +107,7 @@ jobs:
           content = path.read_text(encoding="utf-8")
 
           if "pluginManagement {" not in content:
-              block = "pluginManagement {\\n    repositories {\\n        mavenCentral()\\n        google()\\n        gradlePluginPortal()\\n    }\\n}\\n\\n"
+              block = "pluginManagement {" + chr(10) + "    repositories {" + chr(10) + "        mavenCentral()" + chr(10) + "        google()" + chr(10) + "        gradlePluginPortal()" + chr(10) + "    }" + chr(10) + "}" + chr(10) + chr(10)
               content = block + content
               path.write_text(content, encoding="utf-8")
 
