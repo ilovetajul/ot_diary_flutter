@@ -24,7 +24,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          if git log --format=%s | grep -Fxq "Apply OT Diary v2.2 11-feature patch"; then
+          PATCH_COMMIT="0adb9c42eb71d4876a77954decada6a3daffdcea"
+          if git merge-base --is-ancestor "$PATCH_COMMIT" HEAD; then
             echo "Source patch already committed; preserve follow-up fixes."
             exit 0
           fi
