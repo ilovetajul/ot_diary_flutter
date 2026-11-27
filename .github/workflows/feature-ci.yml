@@ -4,10 +4,11 @@ on:
   push:
     branches:
       - feature/modern-ot-diary
+      - feature/ot-diary-v2.2
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   analyze-test-build:
@@ -15,6 +16,57 @@ jobs:
     steps:
       - name: Checkout feature branch
         uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+
+      - name: Apply verified v2.2 source patch from uploaded ZIP
+        shell: bash
+        run: |
+          set -euo pipefail
+          PATCH_ZIP="OT_Diary_v2_2_11_Features_Patch.zip"
+          BASE_COMMIT="00eb7b708dbc48ca96efe9f5432bfd124d679013"
+          test -f "$PATCH_ZIP"
+          tmp="$(mktemp -d)"
+          unzip -q "$PATCH_ZIP" -d "$tmp"
+          test -f "$tmp/PATCH_README_BN.md"
+          cat "$tmp/PATCH_README_BN.md"
+          (cd "$tmp" && sha256sum -c FILES_SHA256.txt)
+
+          # Only the 19 explicitly checksummed patch files are applied.
+          file_count=0
+          while read -r expected relative_path; do
+            test -n "$relative_path"
+            case "$relative_path" in
+              CHANGELOG.md|android/app/build.gradle|android/app/src/main/AndroidManifest.xml|android/app/src/main/kotlin/com/otdiary/app/MainActivity.kt|android/app/src/main/kotlin/com/otdiary/app/OtSummaryWidget.kt|android/app/src/main/res/layout/ot_summary_widget.xml|android/app/src/main/res/xml/ot_summary_widget_info.xml|lib/app_theme.dart|lib/main.dart|lib/screens/auth_screen.dart|lib/screens/chart_screen.dart|lib/screens/extra_tools_screen.dart|lib/screens/home_screen.dart|lib/screens/settings_screen.dart|lib/screens/splash_screen.dart|lib/services/database_service.dart|lib/services/extra_tools.dart|pubspec.yaml|test/extra_tools_test.dart)
+                install -D "$tmp/$relative_path" "$relative_path"
+                file_count=$((file_count + 1))
+                ;;
+              *)
+                echo "Unexpected patch path: $relative_path"
+                exit 1
+                ;;
+            esac
+          done < "$tmp/FILES_SHA256.txt"
+          test "$file_count" -eq 19
+
+          # Preserve the existing Android package/application ID.
+          git show "$BASE_COMMIT:android/app/build.gradle" | grep -F 'applicationId "com.otdiary.app"'
+          grep -F 'applicationId "com.otdiary.app"' android/app/build.gradle
+          # Firebase configuration and database path files are not in the patch allowlist.
+
+          git diff --check
+          git add CHANGELOG.md android/app/build.gradle android/app/src/main/AndroidManifest.xml android/app/src/main/kotlin/com/otdiary/app/MainActivity.kt android/app/src/main/kotlin/com/otdiary/app/OtSummaryWidget.kt android/app/src/main/res/layout/ot_summary_widget.xml android/app/src/main/res/xml/ot_summary_widget_info.xml lib/app_theme.dart lib/main.dart lib/screens/auth_screen.dart lib/screens/chart_screen.dart lib/screens/extra_tools_screen.dart lib/screens/home_screen.dart lib/screens/settings_screen.dart lib/screens/splash_screen.dart lib/services/database_service.dart lib/services/extra_tools.dart pubspec.yaml test/extra_tools_test.dart
+
+          changed_count="$(git diff --cached --name-only | wc -l | tr -d ' ')"
+          test "$changed_count" -eq 19
+          if git diff --cached --quiet; then
+            echo "Patch files already applied; no source commit needed."
+          else
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git commit -m "Apply OT Diary v2.2 11-feature patch"
+            git push origin HEAD:refs/heads/feature/ot-diary-v2.2
+          fi
 
       - name: Set up Java 17 for Android Gradle
         uses: actions/setup-java@v4
@@ -49,7 +101,7 @@ jobs:
           content = path.read_text(encoding="utf-8")
 
           if "pluginManagement {" not in content:
-              block = "pluginManagement {\n    repositories {\n        mavenCentral()\n        google()\n        gradlePluginPortal()\n    }\n}\n\n"
+              block = "pluginManagement {\\n    repositories {\\n        mavenCentral()\\n        google()\\n        gradlePluginPortal()\\n    }\\n}\\n\\n"
               content = block + content
               path.write_text(content, encoding="utf-8")
 
@@ -58,7 +110,7 @@ jobs:
               raise SystemExit("Could not configure Maven Central for Flutter's included Gradle build.")
 
           print(f"Updated Flutter SDK settings: {path}")
-          print("\n".join(updated.splitlines()[:18]))
+          print("\\n".join(updated.splitlines()[:18]))
           PY
 
       - name: Flutter version and selected JDK
@@ -69,7 +121,6 @@ jobs:
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
         with:
-          # Skip the obsolete default "tools" package.
           packages: ''
 
       - name: Install Android SDK and NDK
@@ -125,7 +176,7 @@ jobs:
       - name: Upload Debug APK
         uses: actions/upload-artifact@v4
         with:
-          name: OT-Diary-feature-debug-apk
+          name: OT-Diary-v2.2-debug-apk
           path: build/app/outputs/flutter-apk/app-debug.apk
           if-no-files-found: error
           retention-days: 14
