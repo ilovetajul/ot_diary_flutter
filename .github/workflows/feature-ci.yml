@@ -24,6 +24,10 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          if git log --format=%s | grep -Fxq "Apply OT Diary v2.2 11-feature patch"; then
+            echo "Source patch already committed; preserve follow-up fixes."
+            exit 0
+          fi
           PATCH_ZIP="OT_Diary_v2_2_11_Features_Patch.zip"
           BASE_COMMIT="00eb7b708dbc48ca96efe9f5432bfd124d679013"
           test -f "$PATCH_ZIP"
