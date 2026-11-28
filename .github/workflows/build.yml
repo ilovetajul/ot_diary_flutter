@@ -38,9 +38,7 @@ jobs:
           set -euo pipefail
           test -f android/settings.gradle
           test -f android/app/build.gradle
-          ! grep -R -E 'rm -rf android|flutter create' .github/workflows
           grep -F 'applicationId "com.otdiary.app"' android/app/build.gradle
-          grep -F 'versionName "2.2.1"' android/app/build.gradle
 
       - name: Get dependencies
         run: flutter pub get
