@@ -4,7 +4,11 @@ import 'package:ot_diary/services/extra_tools.dart';
 void main() {
   test('validates daily overtime and numeric Firebase list keys', () {
     expect(ExtraTools.validHours(double.nan), isFalse);
+    expect(ExtraTools.validHours(double.infinity), isFalse);
+    expect(ExtraTools.validHours(-0.01), isFalse);
     expect(ExtraTools.validHours(25), isFalse);
+    expect(ExtraTools.validHours(0), isTrue);
+    expect(ExtraTools.validHours(24), isTrue);
     expect(ExtraTools.validHours(3.5), isTrue);
     expect(ExtraTools.decodeDays([null, 3, 5.5, null], '2026_11'), {'1': 3.0, '2': 5.5});
     expect(ExtraTools.decodeDays({'29': 4, '30': 3}, '2024_02'), {'29': 4.0});

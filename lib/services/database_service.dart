@@ -172,12 +172,15 @@ class DatabaseService {
     return completer.future;
   }
 
-  static Future<bool> _hasPendingPrefix(String prefix) {
+  static Future<bool> _hasPendingPrefix(
+    String prefix, {
+    String? userId,
+  }) {
     return _withQueueLock<bool>((queue, prefs) async {
       return queue.keys.any(
         (path) => path == prefix || path.startsWith('$prefix/'),
       );
-    });
+    }, userId: userId);
   }
 
   static Future<void> syncPendingWrites() async {
@@ -361,7 +364,7 @@ class DatabaseService {
     final prefs = await SharedPreferences.getInstance();
     final cached = prefs.getString(_profileKey(userId));
     final profileHasPendingWrite =
-        await _hasPendingPrefix('users/$userId/profile');
+        await _hasPendingPrefix('users/$userId/profile', userId: userId);
     if (_connected && !profileHasPendingWrite) {
       try {
         final snapshot = await _db
@@ -447,7 +450,7 @@ class DatabaseService {
       } catch (_) {}
     }
     final path = 'users/$userId/ot/$key';
-    final hasPending = await _hasPendingPrefix(path);
+    final hasPending = await _hasPendingPrefix(path, userId: userId);
     if (_connected && !hasPending) {
       try {
         final snapshot = await _db.ref(path).get().timeout(const Duration(seconds: 6));
@@ -579,32 +582,32 @@ class DatabaseService {
   }
 
   static Future<Map<String, dynamic>> exportAllData() async {
-    if (!isLoggedIn) return <String, dynamic>{};
-
+    final userId = _auth.currentUser?.uid;
+    if (userId == null) return <String, dynamic>{};
     final profile = await getProfile();
+    if (_auth.currentUser?.uid != userId) throw StateError('Account changed');
     final prefs = await SharedPreferences.getInstance();
-
     Map<String, dynamic> cloudUser = <String, dynamic>{};
     if (_connected) {
       try {
         final snapshot = await _db
-            .ref('users/$uid')
+            .ref('users/$userId')
             .get()
             .timeout(const Duration(seconds: 6));
+        if (_auth.currentUser?.uid != userId) throw StateError('Account changed');
         if (snapshot.exists && snapshot.value is Map) {
           cloudUser = Map<String, dynamic>.from(snapshot.value as Map);
         }
       } catch (_) {
-        // Export still includes the cached profile when offline.
+        if (_auth.currentUser?.uid != userId) throw StateError('Account changed');
       }
     }
-
     final ot = cloudUser['ot'] ?? <String, dynamic>{};
     return <String, dynamic>{
       'profile': profile?.toMap(),
       'ot': ot,
       'exportedAt': DateTime.now().toIso8601String(),
-      'offlineCacheAvailable': prefs.getString(_profileKey()) != null,
+      'offlineCacheAvailable': prefs.getString(_profileKey(userId)) != null,
     };
   }
 
