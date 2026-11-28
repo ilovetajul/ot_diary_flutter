@@ -1,3 +1,13 @@
+## 2.2.1 — Stability & Security (in progress)
+
+- Updated app version to 2.2.1 (versionCode 4).
+- Hardened offline pending queue handling so malformed queue data is preserved for recovery instead of silently replaced with an empty queue.
+- Added persistence-layer validation for OT date and hour values.
+- Bound pending sync and profile-photo operations to the UID captured at operation start.
+- Reworked GitHub Actions to use committed source, read-only repository permissions, and non-persistent checkout credentials.
+- Added Firebase Realtime Database and Storage security-rule templates plus Bengali manual deployment instructions.
+- Production signing and live Firebase Rules deployment remain unverified; this is not yet a production-ready release.
+
 # Changelog
 
 ## 2.2.0 — Tools update (pending CI/device verification)
