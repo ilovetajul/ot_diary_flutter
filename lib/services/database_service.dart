@@ -9,6 +9,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/user_profile.dart';
+import '../utils/ot_entry_validator.dart';
 
 /// Local-first data access.
 ///
@@ -59,19 +60,6 @@ class DatabaseService {
     });
 
     _initialized = true;
-  }
-
-  static void _validateOTEntry(int year, int month, int day, double hours) {
-    if (year < 1900 || year > 2100 || month < 1 || month > 12) {
-      throw ArgumentError('Invalid OT year or month');
-    }
-    final lastDay = DateTime(year, month + 1, 0).day;
-    if (day < 1 || day > lastDay) {
-      throw ArgumentError('Invalid OT day for selected month');
-    }
-    if (!hours.isFinite || hours < 0 || hours > 24) {
-      throw ArgumentError.value(hours, 'hours', 'Must be finite and between 0 and 24');
-    }
   }
 
   static Map<int, double> _decodeHours(
@@ -444,7 +432,7 @@ class DatabaseService {
     final operationUid = userId ?? _auth.currentUser?.uid;
     if (operationUid == null) return;
     if (_auth.currentUser?.uid != operationUid) throw StateError('Account changed');
-    _validateOTEntry(year, month, day, hours);
+    OtEntryValidator.validate(year, month, day, hours);
     final key = _monthKey(year, month);
     final cacheKey = _cacheKey(key, operationUid);
     final path = 'users/$operationUid/ot/$key/$day';
@@ -596,7 +584,7 @@ class DatabaseService {
         final month = int.tryParse(parts[1]);
         if (year == null || month == null) continue;
 
-        _validateOTEntry(year, month, day, hours);
+        OtEntryValidator.validate(year, month, day, hours);
         if (_auth.currentUser?.uid != userId) throw StateError('Account changed during import');
         await saveOTDay(year, month, day, hours, userId: userId);
       }

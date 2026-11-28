@@ -11,6 +11,7 @@ import 'package:printing/printing.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/user_profile.dart';
+import '../utils/ot_entry_validator.dart';
 import 'database_service.dart';
 
 class ExtraTools {
@@ -18,7 +19,7 @@ class ExtraTools {
   static String get account => FirebaseAuth.instance.currentUser!.uid;
   static String monthKey(int year, int month) => '${year}_${month.toString().padLeft(2, '0')}';
   static String dateKey(int year, int month, int day) => '${monthKey(year, month)}_${day.toString().padLeft(2, '0')}';
-  static bool validHours(double? value) => value != null && value.isFinite && value >= 0 && value <= 24;
+  static bool validHours(double? value) => OtEntryValidator.isValidHours(value);
   static bool validMonth(String key) => RegExp(r'^(19\d{2}|20\d{2}|21\d{2})_(0[1-9]|1[0-2])$').hasMatch(key);
   static int daysIn(String key) {
     final p = key.split('_');

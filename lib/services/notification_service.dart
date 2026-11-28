@@ -137,20 +137,63 @@ class NotificationService {
     };
   }
 
-  static Future<void> showTestNotification() async {
-    await _plugin.show(
-      9999,
-      'OT Diary পরীক্ষা',
-      'নোটিফিকেশন ঠিকভাবে কাজ করছে।',
-      const NotificationDetails(
-        android: AndroidNotificationDetails(
-          _channelId,
-          _channelName,
-          channelDescription: _channelDescription,
-          importance: Importance.high,
-          priority: Priority.high,
+  static Future<String> showTestNotification() async {
+    try {
+      final android = _plugin.resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin>();
+      final permissionGranted = await android?.requestNotificationsPermission();
+      if (permissionGranted == false) return 'error: notification permission denied';
+      await _plugin.show(
+        9999,
+        'OT Diary পরীক্ষা',
+        'নোটিফিকেশন ঠিকভাবে কাজ করছে।',
+        const NotificationDetails(
+          android: AndroidNotificationDetails(
+            _channelId,
+            _channelName,
+            channelDescription: _channelDescription,
+            importance: Importance.high,
+            priority: Priority.high,
+          ),
         ),
-      ),
-    );
+      );
+      return 'ok';
+    } catch (error) {
+      return 'error: $error';
+    }
+  }
+
+  static Future<String> scheduleTestNotificationAfterTwoMinutes() async {
+    try {
+      final android = _plugin.resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin>();
+      final permissionGranted = await android?.requestNotificationsPermission();
+      if (permissionGranted == false) return 'error: notification permission denied';
+      final location = tz.getLocation('Asia/Dhaka');
+      final scheduled = tz.TZDateTime.now(location).add(const Duration(minutes: 2));
+      await _plugin.cancel(9998);
+      await _plugin.zonedSchedule(
+        9998,
+        'OT Diary — Scheduled Test',
+        'দুই মিনিট আগে নির্ধারিত পরীক্ষামূলক নোটিফিকেশন।',
+        scheduled,
+        const NotificationDetails(
+          android: AndroidNotificationDetails(
+            _channelId,
+            _channelName,
+            channelDescription: _channelDescription,
+            importance: Importance.high,
+            priority: Priority.high,
+          ),
+        ),
+        androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+        uiLocalNotificationDateInterpretation:
+            UILocalNotificationDateInterpretation.absoluteTime,
+      );
+      return 'ok';
+    } catch (error) {
+      return 'error: $error';
+    }
   }
 }
+

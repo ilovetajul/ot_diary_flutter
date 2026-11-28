@@ -31,6 +31,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _reminderOn = false;
   bool _loadingReminder = true;
   bool _photoBusy = false;
+  bool _testNotificationBusy = false;
   String? _photoPath;
 
   @override
@@ -382,6 +383,30 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
   }
 
+  Future<void> _runNotificationTest({required bool scheduled}) async {
+    if (_testNotificationBusy) return;
+    setState(() => _testNotificationBusy = true);
+    String result;
+    try {
+      result = scheduled
+          ? await NotificationService.scheduleTestNotificationAfterTwoMinutes()
+          : await NotificationService.showTestNotification();
+    } catch (error) {
+      result = 'error: $error';
+    }
+    if (!mounted) return;
+    setState(() => _testNotificationBusy = false);
+    if (result == 'ok') {
+      _showToast(
+        scheduled
+            ? 'প্রায় ২ মিনিট পরে পরীক্ষামূলক নোটিফিকেশন নির্ধারণ করা হয়েছে।'
+            : 'পরীক্ষামূলক নোটিফিকেশন পাঠানো হয়েছে।',
+      );
+    } else {
+      _showToast('Test Notification ব্যর্থ: $result', error: true);
+    }
+  }
+
   Future<void> _logout() async {
     final confirmed = await showDialog<bool>(
       context: context,
@@ -588,6 +613,31 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
               trailing: const Icon(Icons.chevron_right),
             ),
+            Divider(height: 1, color: AppColors.border),
+            ListTile(
+              enabled: !_testNotificationBusy,
+              onTap: _testNotificationBusy ? null : () => _runNotificationTest(scheduled: false),
+              leading: const Icon(Icons.notifications_active_outlined),
+              title: const Text('Test Notification'),
+              subtitle: Text(
+                'এখনই পরীক্ষামূলক নোটিফিকেশন',
+                style: TextStyle(color: AppColors.muted, fontSize: 11),
+              ),
+              trailing: _testNotificationBusy
+                  ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
+                  : const Icon(Icons.chevron_right),
+            ),
+            ListTile(
+              enabled: !_testNotificationBusy,
+              onTap: _testNotificationBusy ? null : () => _runNotificationTest(scheduled: true),
+              leading: const Icon(Icons.timer_outlined),
+              title: const Text('২ মিনিট পরে Test Notification'),
+              subtitle: Text(
+                'Inexact Alarm; ব্যাটারি/Idle অবস্থায় দেরি হতে পারে',
+                style: TextStyle(color: AppColors.muted, fontSize: 11),
+              ),
+              trailing: const Icon(Icons.chevron_right),
+            ),
           ]),
           const SizedBox(height: 20),
           _sectionTitle('ডেটা ও সিঙ্ক'),
@@ -657,7 +707,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           const SizedBox(height: 28),
           Center(
             child: Text(
-              'OT Diary · Version 2.1',
+              'OT Diary · Version 2.2.1',
               style: TextStyle(
                 color: AppColors.muted,
                 fontSize: 11,
