@@ -1,70 +1,78 @@
-name: 🚀 Build OT Diary APK
+name: OT Diary — Safe APK Build
 
 on:
   push:
-    branches: [ main, master ]
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
-  build-apk:
+  build:
     runs-on: ubuntu-latest
     steps:
-      - name: 📥 Checkout
+      - name: Checkout committed source
         uses: actions/checkout@v4
+        with:
+          persist-credentials: false
 
-      - name: ☕ Setup Java
+      - name: Set up Java 17
         uses: actions/setup-java@v4
         with:
-          distribution: 'temurin'
+          distribution: temurin
           java-version: '17'
 
-      - name: 🐦 Setup Flutter
+      - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.22.0'
-          channel: 'stable'
+          flutter-version: '3.50.1'
+          channel: stable
           cache: true
 
-      - name: 🗑 Remove old android folder
-        run: rm -rf android ios
-      - name: 🔨 Create fresh Flutter project
+      - name: Verify existing Android project and application ID
+        shell: bash
         run: |
-          flutter create \
-            --org com.otdiary \
-            --project-name ot_diary \
-            --platforms android \
-            .
-          # minSdkVersion 23 set করুন
-          sed -i 's/minSdkVersion flutter.minSdkVersion/minSdkVersion 23/' android/app/build.gradle
-          sed -i 's/minSdk = flutter.minSdkVersion/minSdk = 23/' android/app/build.gradle
-          # App নাম পরিবর্তন
-          sed -i 's/android:label="ot_diary"/android:label="OT Diary"/' android/app/src/main/AndroidManifest.xml
-          # Permissions যোগ করুন
-          sed -i 's/<application/\<uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM"\/>\n    <uses-permission android:name="android.permission.USE_EXACT_ALARM"\/>\n    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"\/>\n    <application/' android/app/src/main/AndroidManifest.xml
+          set -euo pipefail
+          test -f android/settings.gradle
+          test -f android/app/build.gradle
+          ! grep -R -E 'rm -rf android|flutter create' .github/workflows
+          grep -F 'applicationId "com.otdiary.app"' android/app/build.gradle
+          grep -F 'versionName "2.2.1"' android/app/build.gradle
 
-      - name: 🎨 Generate App Icon
-        run: |
-          flutter pub add flutter_launcher_icons
-          cat > flutter_launcher_icons.yaml << 'EOF'
-          flutter_launcher_icons:
-            android: true
-            ios: false
-            image_path: "assets/icon/app_icon.png"
-            min_sdk_android: 21
-            adaptive_icon_background: "#050912"
-            adaptive_icon_foreground: "assets/icon/app_icon.png"
-          EOF
-          dart run flutter_launcher_icons
-
-      - name: 📦 Get dependencies
+      - name: Get dependencies
         run: flutter pub get
 
-      - name: 🔨 Build APK
-        run: flutter build apk --release --split-per-abi --no-tree-shake-icons
-        
-      - name: 📤 Upload APK
+      - name: Analyze
+        run: flutter analyze
+
+      - name: Run tests
+        run: flutter test
+
+      - name: Build debug APK
+        run: flutter build apk --debug
+
+      - name: Upload debug APK
         uses: actions/upload-artifact@v4
         with:
-          name: OT-Diary-Release-APK
-          path: build/app/outputs/flutter-apk/
-          retention-days: 30
+          name: OT-Diary-2.2.1-debug-apk
+          path: build/app/outputs/flutter-apk/app-debug.apk
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Build release-mode APK
+        run: flutter build apk --release
+
+      - name: Report signing limitation
+        run: |
+          echo "::warning::Release build currently uses the repository's debug signing configuration. This artifact is for testing only, not production distribution."
+
+      - name: Upload release-mode APK (debug-signed)
+        uses: actions/upload-artifact@v4
+        with:
+          name: OT-Diary-2.2.1-release-mode-debug-signed
+          path: build/app/outputs/flutter-apk/app-release.apk
+          if-no-files-found: error
+          retention-days: 14

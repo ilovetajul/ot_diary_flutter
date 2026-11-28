@@ -25,14 +25,14 @@ android {
         applicationId "com.otdiary.app"
         minSdkVersion 21
         targetSdkVersion 34
-        versionCode 3
-        versionName "2.2.0"
+        versionCode 4
+        versionName "2.2.1"
     }
 
     buildTypes {
         release {
-            // Keep debug signing for personal test APKs.
-            // Configure a private release keystore before Play Store publishing.
+            // Debug signing is retained only for test builds.
+            // Production release signing must use the verified private keystore.
             signingConfig signingConfigs.debug
             minifyEnabled false
             shrinkResources false
