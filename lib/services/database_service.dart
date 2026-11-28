@@ -390,47 +390,6 @@ class DatabaseService {
     return null;
   }
 
-  static Future<UserProfile?> getProfile() async {
-    if (!isLoggedIn) return null;
-    if (_connected) {
-      unawaited(syncPendingWrites());
-    }
-
-    final prefs = await SharedPreferences.getInstance();
-    final cached = prefs.getString(_profileKey());
-    final profileHasPendingWrite =
-        await _hasPendingPrefix('users/$uid/profile');
-
-    if (_connected && !profileHasPendingWrite) {
-      try {
-        final snapshot = await _db
-            .ref('users/$uid/profile')
-            .get()
-            .timeout(const Duration(seconds: 6));
-
-        if (snapshot.exists && snapshot.value is Map) {
-          final profile = UserProfile.fromMap(snapshot.value as Map);
-          await prefs.setString(
-            _profileKey(),
-            jsonEncode(profile.toMap()),
-          );
-          return profile;
-        }
-      } catch (_) {
-        // Fall back to the local copy below.
-      }
-    }
-
-    if (cached != null) {
-      try {
-        return UserProfile.fromMap(jsonDecode(cached) as Map);
-      } catch (_) {
-        return null;
-      }
-    }
-    return null;
-  }
-
   static Future<Map<int, double>> getMonthData(
     int year,
     int month,
